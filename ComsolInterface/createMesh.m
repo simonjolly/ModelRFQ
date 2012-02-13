@@ -152,7 +152,7 @@ function [comsolModel, outputParameters] = createMesh(comsolModel, selectionName
         comsolModel.mesh('mesh1').feature('map1').selection.named(selectionNames.innerBeamBoxLeadingFaces);
         comsolModel.mesh('mesh1').feature('map1').feature.create('dis1', 'Distribution');
         comsolModel.mesh('mesh1').feature('map1').feature('dis1').selection.named(selectionNames.innerBeamBoxLeadingEdges);
-        comsolModel.mesh('mesh1').feature('map1').feature('dis1').set('numelem', num2str(nBeamBoxCells));
+        comsolModel.mesh('mesh1').feature('map1').feature('dis1').set('numelem', num2str(nBeamBoxCells./2));
         comsolModel.mesh('mesh1').feature('map1').name('Beam Box Front Face');
         comsolModel.mesh('mesh1').run;
 
