@@ -87,6 +87,9 @@ function [comsolModel] = setupPlots(comsolModel, selectionNames)
     comsolModel.result.dataset.create('dset2', 'Solution');
     comsolModel.result.dataset('dset2').selection.geom('geom1', 3);
     comsolModel.result.dataset('dset2').selection.named(selectionNames.beamBoxes);
+    comsolModel.result.dataset.create('dset3', 'Solution');
+    comsolModel.result.dataset('dset3').selection.geom('geom1', 2);
+    comsolModel.result.dataset('dset3').selection.named(selectionNames.allTerminals);
 
     comsolModel.result.create('pg1', 3);
     comsolModel.result('pg1').set('data', 'dset1');
@@ -120,6 +123,7 @@ function [comsolModel] = setupPlots(comsolModel, selectionNames)
     comsolModel.result('pg3').feature('arwv1').set('zcoord', 'range(selectionStart,1[mm],selectionEnd)');
 
     comsolModel.result.create('pg4', 3);
+    comsolModel.result('pg4').set('data', 'dset1');
     comsolModel.result('pg4').feature.create('slc1', 'Slice');
     comsolModel.result('pg4').feature('slc1').set('expr', 'es.Ez');
     comsolModel.result('pg4').feature('slc1').set('descr', 'Electric field, z component');
@@ -133,5 +137,11 @@ function [comsolModel] = setupPlots(comsolModel, selectionNames)
     comsolModel.result('pg4').feature('arwv1').set('arrowymethod', 'coord');
     comsolModel.result('pg4').feature('arwv1').set('ycoord', '0');
     comsolModel.result('pg4').feature('arwv1').set('znumber', '15');
+
+    comsolModel.result.create('pg5', 3);
+    comsolModel.result('pg5').set('data', 'dset3');
+    comsolModel.result('pg5').feature.create('surf1', 'Surface');
+    comsolModel.result('pg5').feature('surf1').set('expr', 'es.normE');
+    comsolModel.result('pg5').feature('surf1').set('descr', 'Electric field norm');
 
     return

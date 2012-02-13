@@ -223,6 +223,13 @@ function comsolModel = setSelections(comsolModel, selectionNames, endFlangeThick
             endFlangeTotal = 2.*endFlangeThickness ;
         end
 
+        if boxWidth < maxX
+            boxWidth = maxX ;
+        end
+        if boxWidth < maxY
+            boxWidth = maxY ;
+        end
+        
         clear *Str metrepos
     
     catch exception
@@ -248,9 +255,17 @@ function comsolModel = setSelections(comsolModel, selectionNames, endFlangeThick
             zmin = (round(min(domainBounds(3,:)).*1e12))./1e12 ; zmax = (round(max(domainBounds(3,:)).*1e12))./1e12 ;
 
             if dispDomains
-                disp(['Domain ' num2str(i) '; xmin = ' num2str(xmin) '; xmax = ' num2str(xmax)]) ;
-                disp(['Domain ' num2str(i) '; ymin = ' num2str(ymin) '; ymax = ' num2str(ymax)]) ;
-                disp(['Domain ' num2str(i) '; zmin = ' num2str(zmin) '; zmax = ' num2str(zmax)]) ;
+                if i == 1
+                    disp(['beamBoxWidth = ' num2str(beamBoxWidth,12) '; boxWidth = ' num2str(boxWidth,12) '; rho = ' num2str(rho,12)]) ;
+                    disp(' ') ;
+                end
+                disp(['Domain ' num2str(i) '; xmin = ' num2str(xmin,12) '; xmax = ' num2str(xmax,12)]) ;
+                disp(['Domain ' num2str(i) '; ymin = ' num2str(ymin,12) '; ymax = ' num2str(ymax,12)]) ;
+                disp(['Domain ' num2str(i) '; zmin = ' num2str(zmin,12) '; zmax = ' num2str(zmax,12)]) ;
+                disp(' ') ;
+                disp(['xmin >= beamBoxWidth: ' num2str(xmin >= beamBoxWidth) '; xmax <= boxWidth: ' num2str(xmax <= boxWidth)]);
+                disp(['xmax - boxWidth: ' num2str(xmax - boxWidth,12)]);
+                disp(['ymin == 0: ' num2str(ymin == 0) '; ymax <= (2.*rho): ' num2str(ymax <= (2.*rho))]) ;
                 disp(' ') ;
             end
 
