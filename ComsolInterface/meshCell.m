@@ -214,6 +214,9 @@ function [comsolModel, outputParameters] = meshCell(comsolModel, cellNo, nBeamBo
                 errorMessage.identifier = 'ModelRFQ:ComsolInterface:meshCell:remeshOuterBeamBox:exception';
                 if (cellLength./numElemDis2)./(beamBoxWidth./nBeamBoxCells) > 2
                     nBeamBoxCells = nBeamBoxCells./2 ;
+                    if nBeamBoxCells == 5 || nBeamBoxCells == 6 || nBeamBoxCells == 7
+                        nBeamBoxCells = 4 ;
+                    end
                     errorMessage.text = ['Could not remesh outer beam box: decreasing number of beam box cells to ' num2str(nBeamBoxCells) ' and retrying...'] ;
                 else
                     if (cellLength./numElemDis1)./(beamBoxWidth./nBeamBoxCells) <= 2
