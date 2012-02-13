@@ -1,8 +1,8 @@
-function rfqModel = modelRfq()
+function [rfqModel, parameters] = modelRfq(varargin)
 %
-% function rfqModel = modelRfq()
+% function [rfqModel, parameters] = modelRfq(varargin)
 %
-%   rfqModel runs the steps needed to model an RFQ.
+%   modelRfq runs the steps needed to model an RFQ.
 %
 %   Parameters for the model are retrieved via the getModelParameters
 %   function. These include the options of which further steps to include.
@@ -40,41 +40,13 @@ function rfqModel = modelRfq()
 %       Added fullfile calls to avoid file system errors.
 %       Removed combine field maps section as no longer required.
 %
+%   21-Feb-2012 S. Jolly
+%       Modified complete script to call getModelParameters rather than
+%       using parameters as a global variable.
+%
 %=========================================================================
 
-%% Declarations 
-
-    global parameters;
-        
-%% Check syntax 
-
-    try %to test syntax 
-        if nargin > 0 %then throw error ModelRFQ:modelRfq:incorrectInputArguments 
-            error('ModelRFQ:modelRfq:incorrectInputArguments', 'Incorrect input arguments: correct syntax is rfqModel = modelRfq()');
-        end
-        if nargout > 1 %then throw error ModelRFQ:modelRfq:incorrectOutputArguments 
-            error('ModelRFQ:modelRfq:incorrectOutputArguments', 'Incorrect output arguments: correct syntax is rfqModel = modelRfq()');
-        end
-    catch syntaxException
-        syntaxMessage = struct;
-        syntaxMessage.identifier = 'ModelRFQ:modelRfq:syntaxException';
-        syntaxMessage.text = 'Syntax error calling modelRfq';
-        syntaxMessage.priorityLevel = 1;
-        syntaxMessage.errorLevel = 'error';
-        syntaxMessage.exception = syntaxException;
-        parameters = struct;
-        parameters.options = struct;
-        parameters.options.verbosity = struct;
-        parameters.options.verbosity.toScreen = 5;
-        parameters.options.verbosity.toFile = 10;
-        parameters.options.verbosity.toTwitter = 3;
-        parameters.files = struct;
-        parameters.files.logFileNo = fopen('error.log', 'w');
-        logMessage(syntaxMessage);
-        fclose(parameters.files.logFileNo);
-    end
-    
-%% Hard-coded locations 
+%% Hard-coded locations
 %   - required because they are used before getModelParameters is called
 
     matlabFolder = 'Matlab';
@@ -88,6 +60,34 @@ function rfqModel = modelRfq()
         otherwise 
             defaultMatlabLocation = pwd;
     end
+    
+%% Check syntax 
+
+    try %to test syntax
+%        if nargin > 1 %then throw error ModelRFQ:modelRfq:incorrectInputArguments 
+%            error('ModelRFQ:modelRfq:incorrectInputArguments', 'Incorrect input arguments: correct syntax is rfqModel = modelRfq(parameters)');
+%        end
+        if nargout > 2 %then throw error ModelRFQ:modelRfq:incorrectOutputArguments 
+            error('ModelRFQ:modelRfq:incorrectOutputArguments', 'Incorrect output arguments: correct syntax is [rfqModel, parameters] = modelRfq()');
+        end
+        if nargin == 1 && isstruct(varargin{1})
+            parameters = varargin{1} ;
+        else % store parameters
+            cd(matlabFolder);
+            parameters = getModelParameters(varargin{:}) ;
+            cd('..');
+            clear matlabFolder;
+        end
+    catch syntaxException
+        syntaxMessage = struct;
+        syntaxMessage.identifier = 'ModelRFQ:modelRfq:syntaxException';
+        syntaxMessage.text = 'Syntax error calling modelRfq';
+        syntaxMessage.priorityLevel = 1;
+        syntaxMessage.errorLevel = 'error';
+        syntaxMessage.exception = syntaxException;
+        parameters = logMessage(syntaxMessage, parameters);
+    end
+
     
 %% Get model parameters 
 
@@ -105,39 +105,7 @@ function rfqModel = modelRfq()
         fileMessage.priorityLevel = 1;
         fileMessage.errorLevel = 'error';
         fileMessage.exception = fileException;
-        parameters = struct;
-        parameters.options = struct;
-        parameters.options.verbosity = struct;
-        parameters.options.verbosity.toScreen = 5;
-        parameters.options.verbosity.toFile = 10;
-        parameters.options.verbosity.toTwitter = 3;
-        parameters.files = struct;
-        parameters.files.logFileNo = fopen('error.log', 'w');
-        logMessage(fileMessage);
-        fclose(parameters.files.logFileNo);
-    end
-    try %to get model parameters 
-        cd(matlabFolder);
-        parameters = getModelParameters();
-        cd('..');
-        clear matlabFolder;
-    catch runException
-        runMessage = struct;
-        runMessage.identifier = 'ModelRFQ:modelRfq:getModelParameters:runException';
-        runMessage.text = 'Error parsing getModelParameters.m file';
-        runMessage.priorityLevel = 1;
-        runMessage.errorLevel = 'error';
-        runMessage.exception = runException;
-        parameters = struct;
-        parameters.options = struct;
-        parameters.options.verbosity = struct;
-        parameters.options.verbosity.toScreen = 5;
-        parameters.options.verbosity.toFile = 10;
-        parameters.options.verbosity.toTwitter = 3;
-        parameters.files = struct;
-        parameters.files.logFileNo = fopen('error.log', 'w');
-        logMessage(runMessage);
-        fclose(parameters.files.logFileNo);
+        parameters = logMessage(fileMessage, parameters);
     end
 
 %% Start log 
@@ -146,8 +114,12 @@ function rfqModel = modelRfq()
         currentFolder = regexp(pwd, filesep, 'split');
         currentFolder = currentFolder(length(currentFolder));
         currentFolder = currentFolder{1};
-        % generate log file name
-        parameters.files.logFile = [currentFolder '-' date '-' '1' '.log'];
+        % generate log file name if necessary
+        if isfield(parameters, 'files') && isfield(parameters.vane, 'logFile')
+        else
+            parameters.files.logFile = [currentFolder '-' date '-' '1' '.log'];
+        end
+
         try %to make log folder if it doesn't exist 
             makeFolder(fullfile(pwd, parameters.files.logFolder), false);
         catch fileException
@@ -157,9 +129,7 @@ function rfqModel = modelRfq()
             fileMessage.priorityLevel = 4;
             fileMessage.errorLevel = 'error';
             fileMessage.exception = fileException;
-            parameters.files.logFileNo = fopen('error.log', 'w');
-            logMessage(fileMessage);
-            fclose(parameters.files.logFileNo);
+            parameters = logMessage(fileMessage, parameters);
         end  
         i = 1;
         while exist(fullfile(pwd, parameters.files.logFolder, parameters.files.logFile), 'file') == 2 %add a number to the filename 
@@ -168,7 +138,6 @@ function rfqModel = modelRfq()
         end
         clear currentFolder i;
         parameters.files.fullLogFile = fullfile(pwd, parameters.files.logFolder, parameters.files.logFile);
-        parameters.files.logFileNo = fopen(parameters.files.fullLogFile, 'w');
     catch fileException        
         fileMessage = struct;
         fileMessage.identifier = 'ModelRFQ:modelRfq:startLog:fileException';
@@ -176,9 +145,7 @@ function rfqModel = modelRfq()
         fileMessage.priorityLevel = 4;
         fileMessage.errorLevel = 'warning';
         fileMessage.exception = fileException;
-        parameters.files.logFileNo = fopen('error.log', 'w');
-        logMessage(fileMessage);
-        fclose(parameters.files.logFileNo);
+        parameters = logMessage(fileMessage, parameters);
     end
     
 %% Start of function 
@@ -190,7 +157,7 @@ function rfqModel = modelRfq()
         masterTimer = tic;
         message.priorityLevel = 1;
         message.errorLevel = 'information';
-        logMessage(message);
+        parameters = logMessage(message, parameters) ;
         clear message;
     catch exception
         errorMessage = struct;
@@ -199,7 +166,7 @@ function rfqModel = modelRfq()
         errorMessage.priorityLevel = 8;
         errorMessage.errorLevel = 'warning';
         errorMessage.exception = exception;
-        logMessage(errorMessage);
+        parameters = logMessage(errorMessage, parameters) ;
     end
     
 %% Build Comsol model and save field map 
@@ -212,7 +179,7 @@ function rfqModel = modelRfq()
                 message.text = '\nSolving for fieldmap in Comsol model...';
                 message.priorityLevel = 2;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear message;
                 message = struct;
                 message.identifier = 'ModelRFQ:modelRfq:buildComsolModel:startTime';
@@ -220,7 +187,7 @@ function rfqModel = modelRfq()
                 buildComsolTimer = tic;
                 message.priorityLevel = 4;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear message;
             catch exception
                 errorMessage = struct;
@@ -229,7 +196,7 @@ function rfqModel = modelRfq()
                 errorMessage.priorityLevel = 8;
                 errorMessage.errorLevel = 'warning';
                 errorMessage.exception = exception;
-                logMessage(errorMessage);
+                parameters = logMessage(errorMessage, parameters) ;
             end
             try %to make CAD folder if it doesn't exist 
                 makeFolder(fullfile(pwd, parameters.files.cadFolder));
@@ -240,7 +207,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end        
             try %to find CAD files 
                 cadFileList = dir(parameters.files.cadSourceFolder);
@@ -273,7 +240,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             try %to make Comsol folder if it doesn't exist 
                 makeFolder(fullfile(pwd, parameters.files.comsolFolder));
@@ -284,7 +251,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             if ~parameters.options.shouldUseCadImport %then use the template Comsol model file instead 
                 try %to find Comsol model file 
@@ -300,7 +267,7 @@ function rfqModel = modelRfq()
                     fileMessage.priorityLevel = 4;
                     fileMessage.errorLevel = 'error';
                     fileMessage.exception = fileException;
-                    logMessage(fileMessage);
+                    parameters = logMessage(fileMessage, parameters) ;
                 end
             end
             try %to change to Comsol folder 
@@ -312,18 +279,11 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             try %to build and solve Comsol model 
-                tempParameters = parameters;    %save parameters as mphstart clears them
-                buildComsolModel();
-                parameters = tempParameters;
-                clear tempParameters;
+                [comsolModel, parameters] = buildComsolModel(parameters) ;
             catch runException
-                if ~exist('parameters', 'var') %then reinstate global variable
-                    parameters = tempParameters;
-                    clear tempParameters;
-                end
                 rethrow(runException);
             end
             try %to change back from Comsol folder 
@@ -335,7 +295,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end        
             try %to move fieldmap to GPT folder ready for next stage 
                 makeFolder(fullfile(pwd, parameters.files.gptFolder));
@@ -347,7 +307,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             try %to notify end 
                 sectionTimeSeconds = toc(buildComsolTimer);
@@ -358,7 +318,7 @@ function rfqModel = modelRfq()
                 message.text = text;
                 message.priorityLevel = 4;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear buildComsolTimer sectionTimeSeconds sectionTime text message;
             catch exception
                 errorMessage = struct;
@@ -367,7 +327,7 @@ function rfqModel = modelRfq()
                 errorMessage.priorityLevel = 8;
                 errorMessage.errorLevel = 'warning';
                 errorMessage.exception = exception;
-                logMessage(errorMessage);
+                parameters = logMessage(errorMessage, parameters) ;
             end
             if parameters.options.shouldPause %then pause 
                 display('Press a key to continue...');
@@ -380,13 +340,7 @@ function rfqModel = modelRfq()
             errorMessage.priorityLevel = 2;
             errorMessage.errorLevel = 'error';
             errorMessage.exception = generalException;
-            if ~exist('parameters', 'var') %then reinstate global variable 
-                parameters = tempParameters;
-                clear tempParameters;
-                logMessage(errorMessage, parameters);
-            else
-                logMessage(errorMessage);
-            end
+            parameters = logMessage(errorMessage, parameters) ;
         end
     end
 
@@ -400,7 +354,7 @@ function rfqModel = modelRfq()
                 message.text = '\nConverting field map to GDF...';
                 message.priorityLevel = 2;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear message;
                 message = struct;
                 message.identifier = 'ModelRFQ:modelRfq:convertFieldMaps:startTime';
@@ -408,7 +362,7 @@ function rfqModel = modelRfq()
                 convertFieldMapsTimer = tic;
                 message.priorityLevel = 4;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear message;
             catch exception
                 errorMessage = struct;
@@ -417,7 +371,7 @@ function rfqModel = modelRfq()
                 errorMessage.priorityLevel = 8;
                 errorMessage.errorLevel = 'warning';
                 errorMessage.exception = exception;
-                logMessage(errorMessage);
+                parameters = logMessage(errorMessage, parameters) ;
             end
             try %to make GPT folder if it doesn't exist 
                 makeFolder(fullfile(pwd, parameters.files.gptFolder));
@@ -428,7 +382,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             try %to find field map 
                 destinationFile = fullfile(pwd, parameters.files.gptFolder, parameters.files.inputFieldMapText);
@@ -443,7 +397,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             try %to change to GPT folder 
                 cd(parameters.files.gptFolder);
@@ -454,7 +408,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             gptCommand = 'asci2gdf -v ';
             gptCommand = [gptCommand '-o ' parameters.files.inputFieldMapGdf ' '];
@@ -473,7 +427,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'warning';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             try %to change back from GPT folder 
                 cd('..');
@@ -484,7 +438,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end        
             try %to notify end 
                 sectionTimeSeconds = toc(convertFieldMapsTimer);
@@ -495,7 +449,7 @@ function rfqModel = modelRfq()
                 message.text = text;
                 message.priorityLevel = 4;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear convertFieldMapsTimer sectionTimeSeconds sectionTime text message;
             catch exception
                 errorMessage = struct;
@@ -504,7 +458,7 @@ function rfqModel = modelRfq()
                 errorMessage.priorityLevel = 8;
                 errorMessage.errorLevel = 'warning';
                 errorMessage.exception = exception;
-                logMessage(errorMessage);
+                parameters = logMessage(errorMessage, parameters) ;
             end
             if parameters.options.shouldPause %then pause 
                 display('Press a key to continue...');
@@ -517,7 +471,7 @@ function rfqModel = modelRfq()
             errorMessage.priorityLevel = 2;
             errorMessage.errorLevel = 'error';
             errorMessage.exception = generalException;
-            logMessage(errorMessage);
+            parameters = logMessage(errorMessage, parameters) ;
         end
     end
     
@@ -531,7 +485,7 @@ function rfqModel = modelRfq()
                 message.text = '\nRunning General Particle Tracer...';
                 message.priorityLevel = 2;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear message;
                 message = struct;
                 message.identifier = 'ModelRFQ:modelRfq:runGpt:startTime';
@@ -539,7 +493,7 @@ function rfqModel = modelRfq()
                 runGptTimer = tic;
                 message.priorityLevel = 4;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear message;
             catch exception
                 errorMessage = struct;
@@ -548,7 +502,7 @@ function rfqModel = modelRfq()
                 errorMessage.priorityLevel = 8;
                 errorMessage.errorLevel = 'warning';
                 errorMessage.exception = exception;
-                logMessage(errorMessage);
+                parameters = logMessage(errorMessage, parameters) ;
             end
             try %to make GPT folder if it doesn't exist 
                 makeFolder(fullfile(pwd, parameters.files.gptFolder));
@@ -559,7 +513,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             try %to find input file 
                 destinationFile = fullfile(pwd, parameters.files.gptFolder, parameters.files.gptInputFile);
@@ -574,7 +528,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             try %to find field map file 
                 destinationFile = fullfile(pwd, parameters.files.gptFolder, parameters.files.inputFieldMapGdf);
@@ -589,7 +543,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             try %to change to GPT folder 
                 cd(parameters.files.gptFolder);
@@ -600,7 +554,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             gptCommand = 'gpt -v ';
             gptCommand = [gptCommand '-o ' parameters.files.gptParticleFile ' '];
@@ -630,7 +584,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             try %to notify end 
                 sectionTimeSeconds = toc(runGptTimer);
@@ -641,7 +595,7 @@ function rfqModel = modelRfq()
                 message.text = text;
                 message.priorityLevel = 4;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear runGptTimer sectionTimeSeconds sectionTime text message;
             catch exception
                 errorMessage = struct;
@@ -650,7 +604,7 @@ function rfqModel = modelRfq()
                 errorMessage.priorityLevel = 8;
                 errorMessage.errorLevel = 'warning';
                 errorMessage.exception = exception;
-                logMessage(errorMessage);
+                parameters = logMessage(errorMessage, parameters) ;
             end
             if parameters.options.shouldPause %then pause 
                 display('Press a key to continue...');
@@ -663,7 +617,7 @@ function rfqModel = modelRfq()
             errorMessage.priorityLevel = 2;
             errorMessage.errorLevel = 'warning';
             errorMessage.exception = generalException;
-            logMessage(errorMessage);
+            parameters = logMessage(errorMessage, parameters) ;
         end
     end
   
@@ -677,7 +631,7 @@ function rfqModel = modelRfq()
                 message.text = '\nCalculating trajectories...';
                 message.priorityLevel = 2;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear message;
                 message = struct;
                 message.identifier = 'ModelRFQ:modelRfq:runGdftrans:startTime';
@@ -685,7 +639,7 @@ function rfqModel = modelRfq()
                 runGdfTransTimer = tic;
                 message.priorityLevel = 4;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear message;
             catch exception
                 errorMessage = struct;
@@ -694,7 +648,7 @@ function rfqModel = modelRfq()
                 errorMessage.priorityLevel = 8;
                 errorMessage.errorLevel = 'warning';
                 errorMessage.exception = exception;
-                logMessage(errorMessage);
+                parameters = logMessage(errorMessage, parameters) ;
             end
             try %to make GPT folder if it doesn't exist 
                 makeFolder(fullfile(pwd, parameters.files.gptFolder));
@@ -705,7 +659,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             try %to find particle data 
                 destinationFile = fullfile(pwd, parameters.files.gptFolder, parameters.files.gptParticleFile);
@@ -720,7 +674,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             try %to change to GPT folder 
                 cd(parameters.files.gptFolder);
@@ -731,7 +685,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             gptCommand = 'gdftrans ';
             gptCommand = [gptCommand '-o ' parameters.files.gptTrajectoryFile ' '];
@@ -748,7 +702,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end        
             try %to notify end 
                 sectionTimeSeconds = toc(runGdfTransTimer);
@@ -759,7 +713,7 @@ function rfqModel = modelRfq()
                 message.text = text;
                 message.priorityLevel = 4;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear runGdfTransTimer sectionTimeSeconds sectionTime text message;
             catch exception
                 errorMessage = struct;
@@ -768,7 +722,7 @@ function rfqModel = modelRfq()
                 errorMessage.priorityLevel = 8;
                 errorMessage.errorLevel = 'warning';
                 errorMessage.exception = exception;
-                logMessage(errorMessage);
+                parameters = logMessage(errorMessage, parameters) ;
             end
             if parameters.options.shouldPause %then pause 
                 display('Press a key to continue...');
@@ -781,7 +735,7 @@ function rfqModel = modelRfq()
             errorMessage.priorityLevel = 2;
             errorMessage.errorLevel = 'error';
             errorMessage.exception = generalException;
-            logMessage(errorMessage);
+            parameters = logMessage(errorMessage, parameters) ;
         end
     end
 
@@ -794,7 +748,7 @@ function rfqModel = modelRfq()
             message.text = '\nReading trajectory file...';
             message.priorityLevel = 2;
             message.errorLevel = 'information';
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
             clear message;
             message = struct;
             message.identifier = 'ModelRFQ:modelRfq:readTrajectoryData:startTime';
@@ -802,7 +756,7 @@ function rfqModel = modelRfq()
             readTrajectoryDataTimer = tic;
             message.priorityLevel = 4;
             message.errorLevel = 'information';
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
             clear message;
         catch exception
             errorMessage = struct;
@@ -811,7 +765,7 @@ function rfqModel = modelRfq()
             errorMessage.priorityLevel = 8;
             errorMessage.errorLevel = 'warning';
             errorMessage.exception = exception;
-            logMessage(errorMessage);
+            parameters = logMessage(errorMessage, parameters) ;
         end
         try %to make GPT folder if it doesn't exist 
             makeFolder(fullfile(pwd, parameters.files.gptFolder));
@@ -822,7 +776,7 @@ function rfqModel = modelRfq()
             fileMessage.priorityLevel = 4;
             fileMessage.errorLevel = 'error';
             fileMessage.exception = fileException;
-            logMessage(fileMessage);
+            parameters = logMessage(fileMessage, parameters) ;
         end
         try %to find trajectory data file 
             destinationFile = fullfile(pwd, parameters.files.gptFolder, parameters.files.gptTrajectoryFile);
@@ -837,7 +791,7 @@ function rfqModel = modelRfq()
             fileMessage.priorityLevel = 4;
             fileMessage.errorLevel = 'error';
             fileMessage.exception = fileException;
-            logMessage(fileMessage);
+            parameters = logMessage(fileMessage, parameters) ;
         end
         [~, ~, trajectoryData] = importGdf(fullfile(parameters.files.gptFolder, parameters.files.gptTrajectoryFile));
         try %to notify end 
@@ -849,7 +803,7 @@ function rfqModel = modelRfq()
             message.text = text;
             message.priorityLevel = 4;
             message.errorLevel = 'information';
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
             clear readTrajectoryDataTimer sectionTimeSeconds sectionTime text message;
         catch exception
             errorMessage = struct;
@@ -858,7 +812,7 @@ function rfqModel = modelRfq()
             errorMessage.priorityLevel = 8;
             errorMessage.errorLevel = 'warning';
             errorMessage.exception = exception;
-            logMessage(errorMessage);
+            parameters = logMessage(errorMessage, parameters) ;
         end
         if parameters.options.shouldPause %then pause 
             display('Press a key to continue...');
@@ -871,7 +825,7 @@ function rfqModel = modelRfq()
         errorMessage.priorityLevel = 2;
         errorMessage.errorLevel = 'error';
         errorMessage.exception = generalException;
-        logMessage(errorMessage);
+        parameters = logMessage(errorMessage, parameters) ;
     end
     try %to load particle data 
         try %to notify start 
@@ -880,7 +834,7 @@ function rfqModel = modelRfq()
             message.text = '\nReading particle file...';
             message.priorityLevel = 2;
             message.errorLevel = 'information';
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
             clear message;
             message = struct;
             message.identifier = 'ModelRFQ:modelRfq:readParticleData:startTime';
@@ -888,7 +842,7 @@ function rfqModel = modelRfq()
             readParticleDataTimer = tic;
             message.priorityLevel = 4;
             message.errorLevel = 'information';
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
             clear message;
         catch exception
             errorMessage = struct;
@@ -897,7 +851,7 @@ function rfqModel = modelRfq()
             errorMessage.priorityLevel = 8;
             errorMessage.errorLevel = 'warning';
             errorMessage.exception = exception;
-            logMessage(errorMessage);
+            parameters = logMessage(errorMessage, parameters) ;
         end
         try %to make GPT folder if it doesn't exist 
             makeFolder(fullfile(pwd, parameters.files.gptFolder));
@@ -908,7 +862,7 @@ function rfqModel = modelRfq()
             fileMessage.priorityLevel = 4;
             fileMessage.errorLevel = 'error';
             fileMessage.exception = fileException;
-            logMessage(fileMessage);
+            parameters = logMessage(fileMessage, parameters) ;
         end
         try %to find particle data file 
             destinationFile = fullfile(pwd, parameters.files.gptFolder, parameters.files.gptParticleFile);
@@ -923,7 +877,7 @@ function rfqModel = modelRfq()
             fileMessage.priorityLevel = 4;
             fileMessage.errorLevel = 'error';
             fileMessage.exception = fileException;
-            logMessage(fileMessage);
+            parameters = logMessage(fileMessage, parameters) ;
         end
         [timeData, positionData] = importGdf(fullfile(parameters.files.gptFolder, parameters.files.gptParticleFile));
         try %to notify end 
@@ -935,7 +889,7 @@ function rfqModel = modelRfq()
             message.text = text;
             message.priorityLevel = 4;
             message.errorLevel = 'information';
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
             clear readParticleDataTimer sectionTimeSeconds sectionTime text message;
         catch exception
             errorMessage = struct;
@@ -944,7 +898,7 @@ function rfqModel = modelRfq()
             errorMessage.priorityLevel = 8;
             errorMessage.errorLevel = 'warning';
             errorMessage.exception = exception;
-            logMessage(errorMessage);
+            parameters = logMessage(errorMessage, parameters) ;
         end
         if parameters.options.shouldPause %then pause 
             display('Press a key to continue...');
@@ -957,7 +911,7 @@ function rfqModel = modelRfq()
         errorMessage.priorityLevel = 2;
         errorMessage.errorLevel = 'error';
         errorMessage.exception = generalException;
-        logMessage(errorMessage);
+        parameters = logMessage(errorMessage, parameters) ;
     end
    
 %% Calculate losses 
@@ -969,7 +923,7 @@ function rfqModel = modelRfq()
             message.text = '\nCalculating particle losses from trajectory data...';
             message.priorityLevel = 2;
             message.errorLevel = 'information';
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
             clear message;
             message = struct;
             message.identifier = 'ModelRFQ:modelRfq:calculateLosses:startTime';
@@ -977,7 +931,7 @@ function rfqModel = modelRfq()
             calculateLossesTimer = tic;
             message.priorityLevel = 4;
             message.errorLevel = 'information';
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
             clear message;
         catch exception
             errorMessage = struct;
@@ -986,7 +940,7 @@ function rfqModel = modelRfq()
             errorMessage.priorityLevel = 8;
             errorMessage.errorLevel = 'warning';
             errorMessage.exception = exception;
-            logMessage(errorMessage);
+            parameters = logMessage(errorMessage, parameters) ;
         end
         colours = tagLosses(trajectoryData, parameters.tagging);
         try %to notify end 
@@ -998,7 +952,7 @@ function rfqModel = modelRfq()
             message.text = text;
             message.priorityLevel = 4;
             message.errorLevel = 'information';
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
             clear calculateLossesTimer sectionTimeSeconds sectionTime text message;
         catch exception
             errorMessage = struct;
@@ -1007,7 +961,7 @@ function rfqModel = modelRfq()
             errorMessage.priorityLevel = 8;
             errorMessage.errorLevel = 'warning';
             errorMessage.exception = exception;
-            logMessage(errorMessage);
+            parameters = logMessage(errorMessage, parameters) ;
         end
         if parameters.options.shouldPause %then pause 
             display('Press a key to continue...');
@@ -1020,7 +974,7 @@ function rfqModel = modelRfq()
         errorMessage.priorityLevel = 2;
         errorMessage.errorLevel = 'warning';
         errorMessage.exception = generalException;
-        logMessage(errorMessage);
+        parameters = logMessage(errorMessage, parameters) ;
     end
 
 %% Find special particles 
@@ -1032,7 +986,7 @@ function rfqModel = modelRfq()
             message.text = '\nFinding special particles...';
             message.priorityLevel = 2;
             message.errorLevel = 'information';
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
             clear message;
             message = struct;
             message.identifier = 'ModelRFQ:modelRfq:findSpecialParticles:startTime';
@@ -1040,7 +994,7 @@ function rfqModel = modelRfq()
             findSpecialParticlesTimer = tic;
             message.priorityLevel = 4;
             message.errorLevel = 'information';
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
             clear message;
         catch exception
             errorMessage = struct;
@@ -1049,7 +1003,7 @@ function rfqModel = modelRfq()
             errorMessage.priorityLevel = 8;
             errorMessage.errorLevel = 'warning';
             errorMessage.exception = exception;
-            logMessage(errorMessage);
+            parameters = logMessage(errorMessage, parameters) ;
         end
         endScreen = positionData(parameters.tracking.endScreenNo);
         nSurvivingParticles = length(endScreen.ID);
@@ -1068,7 +1022,7 @@ function rfqModel = modelRfq()
             message.text = text;
             message.priorityLevel = 4;
             message.errorLevel = 'information';
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
             clear findSpecialParticlesTimer sectionTimeSeconds sectionTime text message;
         catch exception
             errorMessage = struct;
@@ -1077,7 +1031,7 @@ function rfqModel = modelRfq()
             errorMessage.priorityLevel = 8;
             errorMessage.errorLevel = 'warning';
             errorMessage.exception = exception;
-            logMessage(errorMessage);
+            parameters = logMessage(errorMessage, parameters) ;
         end
         if parameters.options.shouldPause %then pause 
             display('Press a key to continue...');
@@ -1090,7 +1044,7 @@ function rfqModel = modelRfq()
         errorMessage.priorityLevel = 2;
         errorMessage.errorLevel = 'warning';
         errorMessage.exception = generalException;
-        logMessage(errorMessage);
+        parameters = logMessage(errorMessage, parameters) ;
     end
     
 %% Calculate results 
@@ -1102,7 +1056,7 @@ function rfqModel = modelRfq()
             message.text = '\nCalculating results...';
             message.priorityLevel = 2;
             message.errorLevel = 'information';
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
             clear message;
             message = struct;
             message.identifier = 'ModelRFQ:modelRfq:calculateResults:startTime';
@@ -1110,7 +1064,7 @@ function rfqModel = modelRfq()
             calculateResultsTimer = tic;
             message.priorityLevel = 4;
             message.errorLevel = 'information';
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
             clear message;
         catch exception
             errorMessage = struct;
@@ -1119,7 +1073,7 @@ function rfqModel = modelRfq()
             errorMessage.priorityLevel = 8;
             errorMessage.errorLevel = 'warning';
             errorMessage.exception = exception;
-            logMessage(errorMessage);
+            parameters = logMessage(errorMessage, parameters) ;
         end
         results = struct;
         results.transmission = nGoodEnergyParticles/parameters.beam.nParticles;
@@ -1149,7 +1103,7 @@ function rfqModel = modelRfq()
                 message.text = ' - Calulating initial x emittance...';
                 message.priorityLevel = 4;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear message;
                 results.xInitialEmittance = calculateEmittance(timeData(1).x.*1e3, timeData(1).xp.*1e3, timeData(1).E, parameters.particle.evMass, 'x');
                 % initial y emittance
@@ -1158,7 +1112,7 @@ function rfqModel = modelRfq()
                 message.text = ' - Calulating initial y emittance...';
                 message.priorityLevel = 4;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear message;
                 results.yInitialEmittance = calculateEmittance(timeData(1).y.*1e3, timeData(1).yp.*1e3, timeData(1).E, parameters.particle.evMass, 'y');
                 % final x emittance
@@ -1167,7 +1121,7 @@ function rfqModel = modelRfq()
                 message.text = ' - Calulating final x emittance...';
                 message.priorityLevel = 4;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear message;
                 results.xFinalEmittance = calculateEmittance(endScreen.x(isGoodEnergy).*1e3, endScreen.xp(isGoodEnergy).*1e3, endScreen.E(isGoodEnergy), parameters.particle.evMass, 'x');
                 % final y emittance
@@ -1176,7 +1130,7 @@ function rfqModel = modelRfq()
                 message.text = ' - Calulating final y emittance...';
                 message.priorityLevel = 4;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear message;
                 results.yFinalEmittance = calculateEmittance(endScreen.y(isGoodEnergy).*1e3, endScreen.yp(isGoodEnergy).*1e3, endScreen.E(isGoodEnergy), parameters.particle.evMass, 'y');
                 clear endScreen isGoodEnergy;
@@ -1187,7 +1141,7 @@ function rfqModel = modelRfq()
                 runMessage.priorityLevel = 2;
                 runMessage.errorLevel = 'error';
                 runMessage.exception = runException;
-                logMessage(runMessage);
+                parameters = logMessage(runMessage, parameters) ;
             end
         end
         try %to notify end 
@@ -1199,7 +1153,7 @@ function rfqModel = modelRfq()
             message.text = text;
             message.priorityLevel = 4;
             message.errorLevel = 'information';
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
             clear calculateResultsTimer sectionTimeSeconds sectionTime text message;
         catch exception
             errorMessage = struct;
@@ -1208,7 +1162,7 @@ function rfqModel = modelRfq()
             errorMessage.priorityLevel = 8;
             errorMessage.errorLevel = 'warning';
             errorMessage.exception = exception;
-            logMessage(errorMessage);
+            parameters = logMessage(errorMessage, parameters) ;
         end
         try %to display results 
             results.text = '\nSimulation results:';
@@ -1235,7 +1189,7 @@ function rfqModel = modelRfq()
             resultsMessage.text = results.text;
             resultsMessage.priorityLevel = 2;
             resultsMessage.errorLevel = 'information';
-            logMessage(resultsMessage);
+            parameters = logMessage(resultsMessage, parameters) ;
             clear displayMeanEnergy meanEnergyLabel displayRmsEnergy rmsEnergyLabel displayFormat resultsMessage;
         catch displayException
             displayMessage = struct;
@@ -1244,7 +1198,7 @@ function rfqModel = modelRfq()
             displayMessage.priorityLevel = 2;
             displayMessage.errorLevel = 'error';
             displayMessage.exception = displayException;
-            logMessage(displayMessage);
+            parameters = logMessage(displayMessage, parameters) ;
         end
         if parameters.options.shouldPause %then pause 
             display('Press a key to continue...');
@@ -1257,7 +1211,7 @@ function rfqModel = modelRfq()
         errorMessage.priorityLevel = 2;
         errorMessage.errorLevel = 'warning';
         errorMessage.exception = generalException;
-        logMessage(errorMessage);
+        parameters = logMessage(errorMessage, parameters) ;
     end
     
 %% Build losses figures 
@@ -1270,7 +1224,7 @@ function rfqModel = modelRfq()
                 message.text = '\nBuilding loss diagrams...';
                 message.priorityLevel = 2;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear message;
                 message = struct;
                 message.identifier = 'ModelRFQ:modelRfq:buildLosses:startTime';
@@ -1278,7 +1232,7 @@ function rfqModel = modelRfq()
                 buildLossesTimer = tic;
                 message.priorityLevel = 4;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear message;
             catch exception
                 errorMessage = struct;
@@ -1287,7 +1241,7 @@ function rfqModel = modelRfq()
                 errorMessage.priorityLevel = 8;
                 errorMessage.errorLevel = 'warning';
                 errorMessage.exception = exception;
-                logMessage(errorMessage);            
+                parameters = logMessage(errorMessage, parameters) ;            
             end
             try %to make results folder if it doesn't exist 
                 makeFolder(fullfile(pwd, parameters.files.resultsFolder));
@@ -1298,7 +1252,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             try %to change to results folder 
                 cd(parameters.files.resultsFolder);
@@ -1309,7 +1263,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end        
             lossesFigureNo = figure;
             plotTrajectories(timeData, trajectoryData, colours, parameters.tracking.endSliceNo, parameters.tracking.endSliceNo, 0, parameters.tracking.rfqLength);
@@ -1329,7 +1283,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             try %to notify end 
                 sectionTimeSeconds = toc(buildLossesTimer);
@@ -1340,7 +1294,7 @@ function rfqModel = modelRfq()
                 message.text = text;
                 message.priorityLevel = 4;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear buildLossesTimer sectionTimeSeconds sectionTime text message;
             catch exception
                 errorMessage = struct;
@@ -1349,7 +1303,7 @@ function rfqModel = modelRfq()
                 errorMessage.priorityLevel = 8;
                 errorMessage.errorLevel = 'warning';
                 errorMessage.exception = exception;
-                logMessage(errorMessage);
+                parameters = logMessage(errorMessage, parameters) ;
             end
             if parameters.options.shouldPause %then pause 
                 display('Press a key to continue...');
@@ -1362,7 +1316,7 @@ function rfqModel = modelRfq()
             runMessage.priorityLevel = 3;
             runMessage.errorLevel = 'warning';
             runMessage.exception = runException;
-            logMessage(runMessage);
+            parameters = logMessage(runMessage, parameters) ;
         end
     end
    
@@ -1376,7 +1330,7 @@ function rfqModel = modelRfq()
                 message.text = '\nBuilding energy profiles...';
                 message.priorityLevel = 2;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear message;
                 message = struct;
                 message.identifier = 'ModelRFQ:modelRfq:buildEnergy:startTime';
@@ -1384,7 +1338,7 @@ function rfqModel = modelRfq()
                 buildEnergyTimer = tic;
                 message.priorityLevel = 4;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear message;
             catch exception
                 errorMessage = struct;
@@ -1393,7 +1347,7 @@ function rfqModel = modelRfq()
                 errorMessage.priorityLevel = 8;
                 errorMessage.errorLevel = 'warning';
                 errorMessage.exception = exception;
-                logMessage(errorMessage);
+                parameters = logMessage(errorMessage, parameters) ;
             end
             try %to make results folder if it doesn't exist 
                 makeFolder(fullfile(pwd, parameters.files.resultsFolder));
@@ -1404,7 +1358,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             try %to change to results folder 
                 cd(parameters.files.resultsFolder);
@@ -1415,7 +1369,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             energyFigureNo = figure;
             if ~parameters.plot.shouldUseTightEnergy %then plot x-axis from zero to max rather than tight
@@ -1452,7 +1406,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             try %to notify end 
                 sectionTimeSeconds = toc(buildEnergyTimer);
@@ -1463,7 +1417,7 @@ function rfqModel = modelRfq()
                 message.text = ['End time: ' currentTime()];
                 message.priorityLevel = 4;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear buildEnergyTimer sectionTimeSeconds sectionTime text message;
             catch exception
                 errorMessage = struct;
@@ -1472,7 +1426,7 @@ function rfqModel = modelRfq()
                 errorMessage.priorityLevel = 8;
                 errorMessage.errorLevel = 'warning';
                 errorMessage.exception = exception;
-                logMessage(errorMessage);
+                parameters = logMessage(errorMessage, parameters) ;
             end
             if parameters.options.shouldPause %then pause 
                 display('Press a key to continue...');
@@ -1485,7 +1439,7 @@ function rfqModel = modelRfq()
             runMessage.priorityLevel = 3;
             runMessage.errorLevel = 'warning';
             runMessage.exception = runException;
-            logMessage(runMessage);
+            parameters = logMessage(runMessage, parameters) ;
         end
     end
 
@@ -1499,7 +1453,7 @@ function rfqModel = modelRfq()
                 message.text = '\nBuilding movies...';
                 message.priorityLevel = 2;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear message;
                 message = struct;
                 message.identifier = 'ModelRFQ:modelRfq:buildMovies:startTime';
@@ -1507,7 +1461,7 @@ function rfqModel = modelRfq()
                 buildMoviesTimer = tic;
                 message.priorityLevel = 4;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear message;
             catch exception
                 errorMessage = struct;
@@ -1516,7 +1470,7 @@ function rfqModel = modelRfq()
                 errorMessage.priorityLevel = 8;
                 errorMessage.errorLevel = 'warning';
                 errorMessage.exception = exception;
-                logMessage(errorMessage);
+                parameters = logMessage(errorMessage, parameters) ;
             end
             try %to make results folder if it doesn't exist 
                 makeFolder(fullfile(pwd, parameters.files.resultsFolder));
@@ -1527,7 +1481,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             try %to change to results folder 
                 cd(parameters.files.resultsFolder);
@@ -1538,7 +1492,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             buildMovies(timeData);
             clear timeData;
@@ -1551,7 +1505,7 @@ function rfqModel = modelRfq()
                 fileMessage.priorityLevel = 4;
                 fileMessage.errorLevel = 'error';
                 fileMessage.exception = fileException;
-                logMessage(fileMessage);
+                parameters = logMessage(fileMessage, parameters) ;
             end
             try %to notify end 
                 sectionTimeSeconds = toc(buildMoviesTimer);
@@ -1562,7 +1516,7 @@ function rfqModel = modelRfq()
                 message.text = ['End time: ' currentTime()];
                 message.priorityLevel = 4;
                 message.errorLevel = 'information';
-                logMessage(message);
+                parameters = logMessage(message, parameters) ;
                 clear buildMoviesTimer sectionTimeSectons sectionTime text message;
             catch exception
                 errorMessage = struct;
@@ -1571,7 +1525,7 @@ function rfqModel = modelRfq()
                 errorMessage.priorityLevel = 8;
                 errorMessage.errorLevel = 'warning';
                 errorMessage.exception = exception;
-                logMessage(errorMessage);
+                parameters = logMessage(errorMessage, parameters) ;
             end
             if parameters.options.shouldPause %then pause 
                 display('Press a key to continue...');
@@ -1584,7 +1538,7 @@ function rfqModel = modelRfq()
             runMessage.priorityLevel = 2;
             runMessage.errorLevel = 'error';
             runMessage.exception = runException;
-            logMessage(runMessage);
+            parameters = logMessage(runMessage, parameters) ;
         end
      end   
     
@@ -1597,7 +1551,7 @@ function rfqModel = modelRfq()
             message.text = '\nWriting results to file...';
             message.priorityLevel = 2;
             message.errorLevel = 'information';
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
             clear message;
             message = struct;
             message.identifier = 'ModelRFQ:modelRfq:writeResults:startTime';
@@ -1605,7 +1559,7 @@ function rfqModel = modelRfq()
             writeResultsTimer = tic;
             message.priorityLevel = 4;
             message.errorLevel = 'information';
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
             clear message;
         catch exception
             errorMessage = struct;
@@ -1614,7 +1568,7 @@ function rfqModel = modelRfq()
             errorMessage.priorityLevel = 8;
             errorMessage.errorLevel = 'warning';
             errorMessage.exception = exception;
-            logMessage(errorMessage);
+            parameters = logMessage(errorMessage, parameters) ;
         end
         try %to make results folder if it doesn't exist 
             makeFolder(fullfile(pwd, parameters.files.resultsFolder));
@@ -1625,7 +1579,7 @@ function rfqModel = modelRfq()
             fileMessage.priorityLevel = 4;
             fileMessage.errorLevel = 'error';
             fileMessage.exception = fileException;
-            logMessage(fileMessage);
+            parameters = logMessage(fileMessage, parameters) ;
         end
         try %to produce results text 
             text =          'Results';
@@ -1681,7 +1635,7 @@ function rfqModel = modelRfq()
             message.priorityLevel = 4;
             message.errorLevel = 'error';
             message.exception = exception;
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
         end
         try %to write results and parameters to text file 
             if ispc %line ending is \r\n for Windows, \n for Mac
@@ -1701,7 +1655,7 @@ function rfqModel = modelRfq()
             runMessage.priorityLevel = 4;
             runMessage.errorLevel = 'warning';
             runMessage.exception = runException;
-            logMessage(runMessage);
+            parameters = logMessage(runMessage, parameters) ;
         end
         try %to log results 
             message = struct;
@@ -1709,7 +1663,7 @@ function rfqModel = modelRfq()
             message.text = ['\n' text];
             message.priorityLevel = 7;
             message.errorLevel = 'information';
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
             clear text message;
         catch exception
             message = struct;
@@ -1718,7 +1672,7 @@ function rfqModel = modelRfq()
             message.priorityLevel = 8;
             message.errorLevel = 'warning';
             message.exception = exception;
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
         end
         try %to write results and parameters to Matlab files 
             save(fullfile(pwd, parameters.files.resultsFolder, [parameters.files.resultsFile(1:end-4) '.mat']), 'results');
@@ -1730,7 +1684,7 @@ function rfqModel = modelRfq()
             runMessage.priorityLevel = 4;
             runMessage.errorLevel = 'warning';
             runMessage.exception = runException;
-            logMessage(runMessage);
+            parameters = logMessage(runMessage, parameters) ;
         end
         try %to notify end 
             sectionTimeSeconds = toc(writeResultsTimer);
@@ -1741,7 +1695,7 @@ function rfqModel = modelRfq()
             message.text = text;
             message.priorityLevel = 4;
             message.errorLevel = 'information';
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
             clear writeResultsTimer sectionTimeSeconds sectionTime text message;
         catch exception
             errorMessage = struct;
@@ -1750,7 +1704,7 @@ function rfqModel = modelRfq()
             errorMessage.priorityLevel = 8;
             errorMessage.errorLevel = 'warning';
             errorMessage.exception = exception;
-            logMessage(errorMessage);
+            parameters = logMessage(errorMessage, parameters) ;
         end
     catch generalException
         errorMessage = struct;
@@ -1759,7 +1713,7 @@ function rfqModel = modelRfq()
         errorMessage.priorityLevel = 4;
         errorMessage.errorLevel = 'warning';
         errorMessage.exception = generalException;
-        logMessage(errorMessage);
+        parameters = logMessage(errorMessage, parameters) ;
     end
 
 %% Notify completion 
@@ -1777,7 +1731,7 @@ function rfqModel = modelRfq()
         message.text = text;
         message.priorityLevel = 1;
         message.errorLevel = 'information';
-        logMessage(message);
+        parameters = logMessage(message, parameters) ;
         clear text message;
     catch exception
         errorMessage = struct;
@@ -1786,7 +1740,7 @@ function rfqModel = modelRfq()
         errorMessage.priorityLevel = 8;
         errorMessage.errorLevel = 'warning';
         errorMessage.exception = exception;
-        logMessage(errorMessage);
+        parameters = logMessage(errorMessage, parameters) ;
     end
     
 %% Clean up 
@@ -1801,7 +1755,7 @@ function rfqModel = modelRfq()
         runMessage.priorityLevel = 4;
         runMessage.errorLevel = 'warning';
         runMessage.exception = fileException;
-        logMessage(runMessage);
+        parameters = logMessage(runMessage, parameters) ;
     end
     
 %% Return model details 
@@ -1809,6 +1763,9 @@ function rfqModel = modelRfq()
     rfqModel = struct;
     rfqModel.parameters = parameters;
     rfqModel.results = results;
+    if exist('comsolModel','var') == 1
+        rfqModel.comsolModel = comsolModel ;
+    end
     
     clear results;
     clear global parameters;
