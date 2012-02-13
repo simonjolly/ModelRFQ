@@ -1,9 +1,60 @@
-function parameters = getModelParameters()
+function parameters = getModelParameters(rfqType, cadFile, modsFile, comsModFolder, comsModel, fileVerbLev, ...
+    screenVerbLev, twitVerbLev, rfqFMapFile, rfqFMatFile, gptInFile, gptPartFile, logFileName, fourQuad)
 %
-% getModelParameters sets various parameters for the model RFQ 
-% function parameters = getrunparameters()
+% function parameters = getModelParameters(rfqType, cadFile, modsFile, comsModFolder, comsModel, fileVerbLev, screenVerbLev, ...
+%                                       twitVerbLev, rfqFMapFile, rfqFMatFile, gptInFile, gptPartFile, logFileName, fourQuad)
+%
+%   GETMODELPARAMETERS.M - set various parameters for the Comsol and beam
+%   dynamics RFQ model.
+%
+%   getModelParameters()
+%   parameters = getModelParameters()
+%   parameters = getModelParameters(rfqType, cadFile, modsFile, comsModFolder, comsModel, fileVerbLev, screenVerbLev, ...
+%                               twitVerbLev, rfqFMapFile, rfqFMatFile, gptInFile, gptPartFile, logFileName, fourQuad)
 %
 %   getModelParameters returns a structure containing all run parameters
+%   for modelling and running beam dynamics simulations of the FETS RFQ.
+%   These parameters are used to specify many options for setting
+%   filenames, beam simulations parameters and verbosity of error checking:
+%   for more information, please see the code itself.
+%
+%   getModelParameters() - output default model parameters.
+%
+%   parameters = getModelParameters() - output default model parameters to
+%   the variable PARAMETERS.
+%
+%   parameters = getModelParameters(rfqType, cadFile, modsFile, comsModFolder, comsModel, twitVerbLev, ...
+%                            fileVerbLev, screenVerbLev, rfqFMapFile, rfqFMatFile, gptInFile, gptPartFile, logFileName)
+%   - also specify certain specific parameters; these are:
+%
+%       rfqType = 'fets' - type of RFQ to model
+%       cadFile = 'RFQFull.sat' - CAD file containing RFQ vane tip model
+%       modsFile = 'RFQParameters.xls' - Excel file containing vane tip modulation parameters
+%       comsModFolder = 'Comsol' - folder containing the Comsol model
+%       comsModel = 'RFQQuadrant.mph - Comsol model filename
+%       twitVerbLev = 3 - verbosity of messages to Twitter (see logMessage)
+%       fileVerbLev = 8 - verbosity of messages saved to log file (see logMessage)
+%       screenVerbLev(1) = 6 - verbosity of messages displayed on screen (see logMessage)
+%       screenVerbLev(2) = 0 - controls display of plots during model creation/solving
+%       rfqFMapFile = 'RFQFieldMap.txt' - text file containing RFQ field map data
+%       rfqFMatFile = 'RFQFieldMap.mat' - Matlab file containing RFQ field map data
+%       gptInFile = 'RFQ.in' - GPT input filename
+%       gptPartFile = 'RFQParticles.gdf' - GDF data file containing input particle distribution
+%       logFileName = 'ModelRFQ.log' - log filename
+%       fourQuad = false - set to true to build a 4-quadrant RFQ model
+%
+%   It is not necessary to specify any of these parameters, so leaving a
+%   certain variable as an empty matrix eg. cadFile = [], uses the default
+%   value. In some circumstances the default parameter depends on the
+%   particular machine in use.
+%
+%   Note that screenVerbLev is nominally a 2-component array, but only the
+%   first value needs to be specified ie. setting screenVerbLev = [10 4]
+%   sets the verbosity of messages displayed to screen to 10 and the
+%   plottting display to 4, while screenVerbLev = 6 sets the verbosity of
+%   messages displayed to screen to 6 and the plottting display to 0.
+%
+%   See also buildComsolModel, modelRfq, setupModel, logMessage.
 
 % File released under the GNU public license.
 % Originally written by Matt Easton.
@@ -13,50 +64,86 @@ function parameters = getModelParameters()
 %   15-Dec-2010 M. J. Easton
 %       Created coherent function to define model parameters.
 %
+%   25-May-2011 S. Jolly
+%       Added input variables to specify multiple options.
+%
 %=========================================================================
 
-%% Check input arguments 
-    if nargin ~= 0 %then throw error ModelRFQ:getModelParameters:incorrectInputArguments 
-        error('ModelRFQ:getModelParameters:incorrectInputArguments', ...
-              'Incorrect number of input variables: syntax is parameters = getModelParameters()');
+%% Check input arguments
+
+    if nargin > 14 %then throw error ModelRFQ:getModelParameters:incorrectInputArguments 
+        error('ModelRFQ:getModelParameters:excessiveInputArguments', ...
+              ['Too many input variables: syntax is parameters = getModelParameters(rfqType, ' ...
+              'cadFile, modsFile, comsModFolder, comsModel, twitVerbLev, fileVerbLev, screenVerbLev, ' ...
+              'rfqFMapFile, rfqFMatFile, gptInFile, gptPartFile, logFileName, fourQuad)']) ;
     end
-    if nargout ~= 1 %then throw error ModelRFQ:getModelParameters:incorrectoutputArguments
-        error('ModelRFQ:getModelParameters:incorrectoutputArguments', ...
-              'Incorrect number of output variables: syntax is parameters = getModelParameters()');    
+    if nargout > 1 %then throw error ModelRFQ:getModelParameters:incorrectoutputArguments
+        error('ModelRFQ:getModelParameters:excessiveOutputArguments', ...
+              'Too many output variables: syntax is parameters = getModelParameters(...)') ;    
     end
-    
+
 %% Initialise parameter structure 
-    parameters = struct;
-    parameters.rfqType = 'FETS';
-    %   parameters.rfqType determines the type of RFQ to be modelled.
-    %   parameters.rfqType can be:
-    %       - FETS: high-power proton RFQ for the Front-End Test Stand
-    %       - PAMELA: superconducting carbon RFQ for the PAMELA FFAG
-    %   Other types could be added by setting the variables correctly below.
+
+%    parameters.rfqType determines the type of RFQ to be modelled.
+%    parameters.rfqType can be:
+%        - FETS: high-power proton RFQ for the Front-End Test Stand
+%        - PAMELA: superconducting carbon RFQ for the PAMELA FFAG
+
+    parameters = struct ;
+    if nargin < 1 || isempty(rfqType)
+        parameters.rfqType = 'FETS' ;
+    else
+        parameters.rfqType = rfqType ;
+    end
     
-%% Optional actions 
+%% Optional actions
+
+%    Verbosity settings to screen, to log file and to Twitter
+%     - see logMessage function for full details
+%
+%    Verbosity levels:
+%       0 - no output
+%       1 - start and stop of full function
+%       2 - also start of each major section in the main modelRfq function
+%       3 - also start of major sections in subroutines
+%       4 - also more detail in modelRfq function
+%       5 - also more detail in subroutines
+%       6 - also more detail from external processes
+%       9 - also include Twitter connection errors
+%      10 - maximum detail
+
     parameters.options = struct;    
-    
-    % Verbosity settings to screen, to log file and to Twitter
-    %  - see logMessage function for full details
-    %
-    % Verbosity levels:
-    %    0 - no output
-    %    1 - start and stop of full function
-    %    2 - also start of each major section in the main modelRfq function
-    %    3 - also start of major sections in subroutines
-    %    4 - also more detail in modelRfq function
-    %    5 - also more detail in subroutines
-    %    6 - also more detail from external processes
-    %    9 - also include Twitter connection errors
-    %   10 - maximum detail
+
     parameters.options.verbosity = struct;
-    parameters.options.verbosity.toScreen = 6;
-    parameters.options.verbosity.toFile = 8;
-    parameters.options.verbosity.toTwitter = 3;    
-    
+
+    if nargin < 6 || isempty(fileVerbLev)
+        parameters.options.verbosity.toFile = 8 ;
+    else
+        parameters.options.verbosity.toFile = fileVerbLev ;
+    end
+    if nargin < 7 || isempty(screenVerbLev)
+        parameters.options.verbosity.toScreen = 6 ;
+        parameters.options.verbosity.toPlots = 0 ;
+    else
+        parameters.options.verbosity.toScreen = screenVerbLev(1) ;
+        if length(screenVerbLev) > 1
+            parameters.options.verbosity.toPlots = screenVerbLev(2) ;
+        else
+            parameters.options.verbosity.toPlots = 0 ;
+        end
+    end
+    if nargin < 8 || isempty(twitVerbLev)
+        parameters.options.verbosity.toTwitter = 3 ;
+    else
+        parameters.options.verbosity.toTwitter = twitVerbLev ;
+    end
+
+    if ispc
+        parameters.options.shouldUseCadImport = true ;             % set to false to use template Comsol model instead
+    else
+        parameters.options.shouldUseCadImport = false ;            % CAD import only works on Windows
+    end
     parameters.options.shouldBuildModel = true;                    % build model in Comsol and export field map?
-    parameters.options.shouldUseCadImport = true;                  % set to false to use template Comsol model instead
     parameters.options.shouldConvertFieldMaps = true;              % convert field maps to GDF?
     parameters.options.shouldRunGpt = true;                        % run GPT?
     parameters.options.shouldRunGdftrans = true;                   % run GDFTrans?
@@ -75,8 +162,9 @@ function parameters = getModelParameters()
     parameters.options.shouldMakeEnergyMovie = true;               % build energy movie?
         
 %% Files 
+
     parameters.files = struct;
-    
+
     parameters.files.logFolder = 'Logs';
     parameters.files.resultsFolder = 'Results';
     parameters.files.cadFolder = 'CAD';
@@ -93,45 +181,203 @@ function parameters = getModelParameters()
         folderName = folderName(end);
     end
     folderName = folderName{1};
-    
+
     switch getComputerName() %set source locations accordingly 
         case 'heppc237'
-            parameters.files.cadSourceFolder = 'D:\MJE\Dropbox\ModelRFQ\CAD\';          % location of CAD master files (include trailing filesep)
-            parameters.files.comsolServer = 'C:\COMSOL41\bin\win64\comsolserver.exe';	% location of Comsol server
-            parameters.files.comsolSourceFolder = 'D:\MJE\Dropbox\ModelRFQ\Comsol\';    % location of Comsol master files (include trailing filesep)
-            parameters.files.gptSourceFolder = 'D:\MJE\Dropbox\ModelRFQ\GPT\';          % location of GPT master files (include trailing filesep)
+            defcadSourceFolder = 'D:\MJE\Dropbox\ModelRFQ\CAD\';          % location of CAD master files (include trailing filesep)
+            defcomsolServer = 'C:\COMSOL41\bin\win64\comsolserver.exe';	  % location of Comsol server
+            defcomsolSourceFolder = 'D:\MJE\Dropbox\ModelRFQ\Comsol\';    % location of Comsol master files (include trailing filesep)
+            defgptSourceFolder = 'D:\MJE\Dropbox\ModelRFQ\GPT\';          % location of GPT master files (include trailing filesep)
+            defcadFile = 'RFQFull.sat';
+            defmodulationsFile = 'RFQParameters.xls' ;
+            defcomsolModel = 'RFQQuadrant.mph' ;
+            defoutputFieldMapText = 'RFQFieldMap.txt' ;
+            defoutputFieldMapMatlab = 'RFQFieldMap.mat' ;
+            defgptInputFile = 'RFQ.in';
+            defgptParticleFile = 'RFQParticles.gdf';        % name of gpt output file to be read/generated
+            defcadSourceFolder = 'D:\SJ\CADFiles\' ;
+            defcomsolServer = 'C:\COMSOL41\bin\win64\comsolserver.exe';
+            defcomsolSourceFolder = 'D:\SJ\Comsol\Models\' ;
+            defgptSourceFolder = 'D:\SJ\gpt\rfq_cad\' ;
+            defcadFile = fullfile(defcadSourceFolder, 'FETSRFQ_FullVanes+Match_SJ.iam') ;
+            defmodulationsFile = fullfile(defcadSourceFolder,'RFQVaneParamsMaster.xls') ;
+            if nargin > 1 && ~isempty(cadFile)
+                [strcadfolder, strcadfile, strcadext] = fileparts(cadFile) ;
+            else
+                [strcadfolder, strcadfile, strcadext] = fileparts(defcadFile) ;
+            end
+            defcomsolModel = [strcadfile '.mph'] ;
+            defoutputFieldMapText = fullfile(defcomsolSourceFolder, 'FETSRFQFieldMap.txt') ;
+            defoutputFieldMapMatlab = fullfile(defcomsolSourceFolder, 'FETSRFQFieldMap.mat') ;
+            defgptInputFile = fullfile(defgptSourceFolder, 'RFQ.in') ;
+            defgptParticleFile = fullfile(defgptSourceFolder, 'RFQParticles.gdf') ;
         case 'chui'
-            parameters.files.cadSourceFolder = '~/Dropbox/ModelRFQ/CAD/';
-            parameters.files.comsolServer = '/Applications/COMSOL41/bin/comsol server';
-            parameters.files.comsolSourceFolder = '~/Dropbox/ModelRFQ/Comsol/';
-            parameters.files.gptSourceFolder = '~/Dropbox/ModelRFQ/GPT/';
+            defcadSourceFolder = '~/Dropbox/ModelRFQ/CAD/';
+            defcomsolServer = '/Applications/COMSOL41/bin/comsol server';
+            defcomsolSourceFolder = '~/Dropbox/ModelRFQ/Comsol/';
+            defgptSourceFolder = '~/Dropbox/ModelRFQ/GPT/';
+            defcadFile = 'RFQFull.sat';
+            defmodulationsFile = 'RFQParameters.xls' ;
+            defcomsolModel = 'RFQQuadrant.mph' ;
+            defoutputFieldMapText = 'RFQFieldMap.txt' ;
+            defoutputFieldMapMatlab = 'RFQFieldMap.mat' ;
+            defgptInputFile = 'RFQ.in';
+            defgptParticleFile = 'RFQParticles.gdf';
         case 'windui'
-            parameters.files.cadSourceFolder = 'C:\Users\Matt Easton\Dropbox\ModelRFQ\CAD\';
-            parameters.files.comsolServer = 'C:\Program Files\Comsol 4.1\bin\win64\comsolserver.exe';
-            parameters.files.comsolSourceFolder = 'C:\Users\Matt Easton\Dropbox\ModelRFQ\Comsol\';
-            parameters.files.gptSourceFolder = 'C:\Users\Matt Easton\Dropbox\ModelRFQ\GPT\';
+            defcadSourceFolder = 'C:\Users\Matt Easton\Dropbox\ModelRFQ\CAD\';
+            defcomsolServer = 'C:\Program Files\Comsol 4.1\bin\win64\comsolserver.exe';
+            defcomsolSourceFolder = 'C:\Users\Matt Easton\Dropbox\ModelRFQ\Comsol\';
+            defgptSourceFolder = 'C:\Users\Matt Easton\Dropbox\ModelRFQ\GPT\';
+            defcadFile = 'RFQFull.sat';
+            defmodulationsFile = 'RFQParameters.xls' ;
+            defcomsolModel = 'RFQQuadrant.mph' ;
+            defoutputFieldMapText = 'RFQFieldMap.txt' ;
+            defoutputFieldMapMatlab = 'RFQFieldMap.mat' ;
+            defgptInputFile = 'RFQ.in';
+            defgptParticleFile = 'RFQParticles.gdf';
+        case 'heppc53' %,'dyn1205-11'}
+            if ispc
+                if exist('Z:\Comsol','dir')
+                    driveletter = 'Z:' ;
+                else
+                    driveletter = 'D:' ;
+                end
+                defcadSourceFolder = 'C:\CADFiles\' ;
+                defcomsolServer = 'C:\COMSOL41\bin\win32\comsolserver.exe' ;
+                defcomsolSourceFolder = [driveletter '\Comsol\Models\'] ;
+                defgptSourceFolder = [driveletter '\gpt\rfq_comsol\'] ;
+            elseif ismac
+                defcadSourceFolder = '/Volumes/WINDOWS/CADFiles/';
+                defcomsolServer = '/Applications/COMSOL41/bin/maci64/comsol server';
+                defcomsolSourceFolder = '/Volumes/FATSWAP/Comsol/Models/';
+                defgptSourceFolder = '/Volumes/FATSWAP/gpt/rfq_comsol/';
+            end
+            defcadFile = fullfile(defcadSourceFolder, 'FETSRFQ_FullVanes+Match_SJ.iam') ;
+            defmodulationsFile = fullfile(defcadSourceFolder,'RFQVaneParamsMaster.xls') ;
+%            defcomsolModel = fullfile(defcomsolSourceFolder, 'FETSRFQQuadModel.mph') ;
+%            defcomsolModel = 'FETSRFQQuadModel.mph' ;
+            if nargin > 1 && ~isempty(cadFile)
+                [strcadfolder, strcadfile] = fileparts(cadFile) ;
+            else
+                [strcadfolder, strcadfile] = fileparts(defcadFile) ;
+            end
+            defcomsolModel = [strcadfile '.mph'] ;
+            defoutputFieldMapText = fullfile(defcomsolSourceFolder, 'FETSRFQFieldMap.txt') ;
+            defoutputFieldMapMatlab = fullfile(defcomsolSourceFolder, 'FETSRFQFieldMap.mat') ;
+            defgptInputFile = fullfile(defgptSourceFolder, 'RFQ.in') ;
+            defgptParticleFile = fullfile(defgptSourceFolder, 'RFQParticles.gdf') ;
+        case 'heppc222'
+            if ispc
+                if exist('Y:\CADFiles','dir')
+                    driveletter = 'Y:' ;
+                    driveletterz = 'Z:' ;
+                else
+                    driveletter = 'D:' ;
+                    driveletterz = 'D:' ;
+                end
+                defcadSourceFolder = [driveletter '\CADFiles\'] ;
+                defcomsolServer = 'C:\COMSOL41\bin\win64\comsolserver.exe';
+                defcomsolSourceFolder = [driveletterz '\Comsol\Models\'] ;
+                defgptSourceFolder = [driveletter '\gpt\rfq_comsol\'] ;
+            elseif ismac
+                defcadSourceFolder = '/Volumes/WINDATA/CADFiles/';
+                defcomsolServer = '/Applications/COMSOL41/bin/maci64/comsol server';
+                defcomsolSourceFolder = '/Volumes/FATSWAP/Comsol/Models/';
+                defgptSourceFolder = '/Volumes/FATSWAP/gpt/rfq_comsol/';
+            end
+            defcadFile = fullfile(defcadSourceFolder, 'FETSRFQ_FullVanes+Match_SJ.iam') ;
+            defmodulationsFile = fullfile(defcadSourceFolder,'RFQVaneParamsMaster.xls') ;
+%            defcomsolModel = fullfile(defcomsolSourceFolder, 'FETSRFQQuadModel.mph') ;
+%            defcomsolModel = 'FETSRFQQuadModel.mph' ;
+            if nargin > 1 && ~isempty(cadFile)
+                [strcadfolder, strcadfile, strcadext] = fileparts(cadFile) ;
+            else
+                [strcadfolder, strcadfile, strcadext] = fileparts(defcadFile) ;
+            end
+            defcomsolModel = [strcadfile '.mph'] ;
+            defoutputFieldMapText = fullfile(defcomsolSourceFolder, 'FETSRFQFieldMap.txt') ;
+            defoutputFieldMapMatlab = fullfile(defcomsolSourceFolder, 'FETSRFQFieldMap.mat') ;
+            defgptInputFile = fullfile(defgptSourceFolder, 'RFQ.in') ;
+            defgptParticleFile = fullfile(defgptSourceFolder, 'RFQParticles.gdf') ;
         otherwise
-            parameters.files.cadSourceFolder = '.\CAD\';
-            parameters.files.comsolServer = 'C:\COMSOL41\bin\comsolserver.exe';
-            parameters.files.comsolSourceFolder = '.\Comsol\';
-            parameters.files.gptSourceFolder = '.\GPT\';
+            if ispc
+                defcomsolServer = 'C:\COMSOL41\bin\win32\comsolserver.exe';
+            elseif ismac
+                defcomsolServer = '/Applications/COMSOL41/bin/comsol server';
+            end
+            defcadSourceFolder = '.\CAD\';
+            defcomsolSourceFolder = '.\Comsol\';
+            defgptSourceFolder = '.\GPT\';
+            defcadFile = 'RFQFull.sat';
+            defmodulationsFile = 'RFQParameters.xls' ;
+            defcomsolModel = 'RFQQuadrant.mph' ;
+            defoutputFieldMapText = 'RFQFieldMap.txt' ;
+            defoutputFieldMapMatlab = 'RFQFieldMap.mat' ;
+            defgptInputFile = 'RFQ.in';
+            defgptParticleFile = 'RFQParticles.gdf';
     end
+
+    if nargin < 4 || isempty(comsModFolder)
+        parameters.files.comsolSourceFolder = defcomsolSourceFolder ;
+    else
+        parameters.files.comsolSourceFolder = comsModFolder ;
+    end
+
+    if nargin < 13 || isempty(logFileName)
+        parameters.files.logFileName = fullfile(parameters.files.comsolSourceFolder, 'ModelRFQ.log') ;
+    else
+        parameters.files.logFileName = logFileName ;
+    end
+
+    parameters.files.cadSourceFolder = defcadSourceFolder ;
+    parameters.files.comsolServer = defcomsolServer;
+    parameters.files.gptSourceFolder = defgptSourceFolder ;
+
     parameters.files.comsolPort = 'default';
 
-    if ispc %then use Inventor assembly instead of SAT file 
-        parameters.files.cadFile = 'RFQFull.sat';
+    if nargin < 2 || isempty(cadFile)
+        if ispc %then use Inventor assembly instead of SAT file 
+            parameters.files.cadFile = defcadFile ;
+        else
+            parameters.files.cadFile = defcadFile ;     % Inventor assemblies are only supported on Windows 
+        end
     else
-        parameters.files.cadFile = 'RFQFull.sat';   % Inventor assemblies are only supported on Windows 
+        parameters.files.cadFile = fullfile(parameters.files.cadSourceFolder, cadFile) ;
     end
-    parameters.files.modulationsFile = 'RFQParameters.xls';
-    parameters.files.comsolModel = 'RFQQuadrant.mph';
-    parameters.files.outputFieldMapText = 'RFQFieldMap.txt';
-    parameters.files.outputFieldMapMatlab = 'RFQFieldMap.mat';
-    
-    parameters.files.gptInputFile = 'RFQ.in';
-    parameters.files.inputFieldMapText = 'RFQFieldMap.txt';                                    % name of field map text file to be read/generated
+    if nargin < 3 || isempty(modsFile)
+        parameters.files.modulationsFile = defmodulationsFile ;
+    else
+        parameters.files.modulationsFile = modsFile ;
+    end
+    if nargin < 5 || isempty(comsModel)
+        parameters.files.comsolModel = defcomsolModel ;
+    else
+        parameters.files.comsolModel = comsModel ;
+    end
+    if nargin < 9 || isempty(rfqFMapFile)
+        parameters.files.outputFieldMapText = defoutputFieldMapText ;
+    else
+        parameters.files.outputFieldMapText = rfqFMapFile ;
+    end
+    if nargin < 10 || isempty(rfqFMatFile)
+        parameters.files.outputFieldMapMatlab = defoutputFieldMapMatlab ;
+    else
+        parameters.files.outputFieldMapMatlab = rfqFMatFile ;
+    end
+    if nargin < 11 || isempty(gptInFile)
+        parameters.files.gptInputFile = defgptInputFile ;
+    else
+        parameters.files.gptInputFile = gptInFile ;
+    end
+    if nargin < 12 || isempty(gptPartFile)
+        parameters.files.gptParticleFile = defgptParticleFile ;                                 % name of gpt output file to be read/generated
+    else
+        parameters.files.gptParticleFile = gptPartFile ;
+    end
+
+%    parameters.files.inputFieldMapText = 'RFQFieldMap.txt';                                    % name of field map text file to be read/generated
+    parameters.files.inputFieldMapText = parameters.files.outputFieldMapText ;
     parameters.files.inputFieldMapGdf = 'RFQFieldMap.gdf';                                     % name of field map gdf file to be read/generated
-    parameters.files.gptParticleFile = 'RFQParticles.gdf';                                     % name of gpt output file to be read/generated
     parameters.files.gptTrajectoryFile = 'RFQTrajectories.gdf';                                % name of gpt output file to be read/generated
     
     parameters.files.lossesFigure = ['RFQLosses-' folderName '.jpg'];                          % name of losses diagram file
@@ -144,8 +390,9 @@ function parameters = getModelParameters()
     parameters.files.yPhaseMovie = ['RFQPhaseY-' folderName];                                  % name of y phase space movie file
     parameters.files.energyMovie = ['RFQEnergy-' folderName];                                  % name of energy movie file
 
-%% Particle settings 
-    parameters.particle = struct;    
+%% Particle settings
+
+    parameters.particle = struct ;    
     
     parameters.particle.lightSpeed = 299792458;                                                        % speed of light
     parameters.particle.electronCharge = 1.602176487e-19;                                              % electron charge in C
@@ -153,7 +400,8 @@ function parameters = getModelParameters()
     parameters.particle.electronMass = 9.10938215e-31;                                                 % mass of electron in kg
     parameters.particle.atomicMassUnit = 1.660538782e-27;                                              % atomic mass unit in kg
     
-    if strcmpi(parameters.rfqType, 'PAMELA') || strcmpi(parameters.rfqType, 'PAMELA6') || strcmpi(parameters.rfqType, 'FETS>PAMELA') || strcmpi(parameters.rfqType, 'FETS>PAMELA6')
+    if strcmpi(parameters.rfqType, 'PAMELA') || strcmpi(parameters.rfqType, 'PAMELA6') ...
+            || strcmpi(parameters.rfqType, 'FETS>PAMELA') || strcmpi(parameters.rfqType, 'FETS>PAMELA6')
         parameters.particle.nNucleons = 12;                                                            % carbon-12
         parameters.particle.eCharge = 6;                                                               % C 6+ ion
         parameters.particle.mass = (12 * parameters.particle.atomicMassUnit) ...
@@ -182,13 +430,19 @@ function parameters = getModelParameters()
     parameters.particle.beta = sqrt(1 - ( 1 / parameters.particle.gamma.^2 ) );                        % particle velocity []
     parameters.particle.velocity = parameters.particle.beta * parameters.particle.lightSpeed;          % particle velocity [m/s]
     
-%% Vane settings 
+%% Vane settings
+
+    if nargin < 14 || isempty(fourQuad)
+        fourQuad = false ;
+    end
+        
     parameters.vane = struct;
     
     parameters.vane.voltage = 42500;                    % vane voltage - potential difference between vanes = vane voltage x 2
     
     parameters.vane.nExtraCells = 1;                    % how many cells to include either side of the cell being solved
     parameters.vane.shouldSaveSeparateCells = false;    % build and save cells separately for troubleshooting?
+    parameters.vane.fourQuad = fourQuad ;               % build a 4-quadrant model?
     
 %% Selection names 
 
@@ -209,18 +463,21 @@ function parameters = getModelParameters()
     parameters.defaultSelectionNames.innerBeamBoxRearFace = 'sel14';
     parameters.defaultSelectionNames.outerBeamBox = 'sel15';
     parameters.defaultSelectionNames.airBag = 'sel16';
-    parameters.defaultSelectionNames.airBagBoundaries = 'sel16';
+    parameters.defaultSelectionNames.airBagBoundaries = 'sel17';
     parameters.defaultSelectionNames.innerBeamBoxFrontEdges = 'sel18';
     parameters.defaultSelectionNames.innerBeamBoxLeadingFaces = 'sel19';
     parameters.defaultSelectionNames.innerBeamBoxLeadingEdges = 'sel20';
     parameters.defaultSelectionNames.beamBoxes = 'sel21';
+    parameters.defaultSelectionNames.endFlangeGrounded = 'sel22';
 
-%% Beam settings 
+%% Beam settings
+
     parameters.beam = struct;
     
-    parameters.beam.nParticles = 1000;                     % number of particles
+    parameters.beam.nParticles = 10000;                     % number of particles
     
-    if strcmpi(parameters.rfqType, 'PAMELA') || strcmpi(parameters.rfqType, 'PAMELA6') || strcmpi(parameters.rfqType, 'FETS>PAMELA') || strcmpi(parameters.rfqType, 'FETS>PAMELA6') %then set values accordingly 
+    if strcmpi(parameters.rfqType, 'PAMELA') || strcmpi(parameters.rfqType, 'PAMELA6') ...
+            || strcmpi(parameters.rfqType, 'FETS>PAMELA') || strcmpi(parameters.rfqType, 'FETS>PAMELA6') %then set values accordingly 
         parameters.beam.current = 1e-6;                    % beam current is 1 micro-A
         parameters.beam.frequency = 280e6;                 % rf frequency is 280 MHz
         parameters.beam.pulseLength = 3e-9;                % beam pulse length is 3 ns
@@ -234,7 +491,8 @@ function parameters = getModelParameters()
         parameters.beam.pulseLength = 3e-9;                % beam pulse length is 3 ns
     end
     
-%% Tracking settings 
+%% Tracking settings
+
     parameters.tracking = struct;
     
     if strcmpi(parameters.rfqType, 'PAMELA') || strcmpi(parameters.rfqType, 'PAMELA4') || strcmpi(parameters.rfqType, 'PAMELA6')
@@ -316,7 +574,8 @@ function parameters = getModelParameters()
         parameters.tracking.endScreenNo = 1;            % screen at end of rfq
     end
 
-%% Tagging settings 
+%% Tagging settings
+
     parameters.tagging = struct;
     
     if strcmpi(parameters.rfqType, 'FETS') %then set colour ranges accordingly 
@@ -327,12 +586,14 @@ function parameters = getModelParameters()
     parameters.tagging.colourLoop = ('rgbcmy');                         % colours to use
     parameters.tagging.markerLoop = ('x+*o.sd^v><ph');                   % markers to use
 
-%% Plot settings 
+%% Plot settings
+
     parameters.plot = struct;
     
     parameters.plot.maxMovieSize = 400; %how many frames to include in a single movie file 
     
-    if strcmpi(parameters.rfqType, 'PAMELA') || strcmpi(parameters.rfqType, 'PAMELA6') || strcmpi(parameters.rfqType, 'FETS>PAMELA') || strcmpi(parameters.rfqType, 'FETS>PAMELA6')
+    if strcmpi(parameters.rfqType, 'PAMELA') || strcmpi(parameters.rfqType, 'PAMELA6') ...
+            || strcmpi(parameters.rfqType, 'FETS>PAMELA') || strcmpi(parameters.rfqType, 'FETS>PAMELA6')
         parameters.plot.maxEnergy = 800e3*parameters.particle.nNucleons;         % width of energy axis in energy plots
         parameters.plot.maxEnergyHistogram = 30;   % height of y axis in energy plots
         parameters.plot.framesPerSecond = 50;                  % frames per second for all movie files
@@ -364,4 +625,4 @@ function parameters = getModelParameters()
         parameters.plot.isPerNucleon = false;            % plot histogram with energy per nucleon
     end %if
 
-return
+    return

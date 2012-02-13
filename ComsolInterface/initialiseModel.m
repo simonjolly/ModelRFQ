@@ -1,15 +1,25 @@
-function comsolModel = initialiseModel(modelPath)
+function [comsolModel] = initialiseModel(modelPath)
 %
 % function comsolModel = initialiseModel(modelPath)
 %
-%   initialiseModel creates a Comsol model at the specified path.
+%   INITIALISEMODEL.M - create a Comsol model at the specified path.
 %
-%   Credit for the majority of the modelling code must go to Simon Jolly of
-%   Imperial College London.
+%   initialiseModel(modelPath)
+%   comsolModel = initialiseModel(modelPath)
+%
+%   initialiseModel creates a Comsol model at the specified path.  It is
+%   the first function to be called as part of setting up a Comsol model
+%   from within Matlab.  It also sets up an initial geometry object,
+%   electrostatic physics and an initial mesh.
+%
+%   initialiseModel(modelPath) - intialise Comsol model in directory
+%   MODELPATH.
+%
+%   comsolModel = initialiseModel(modelPath) - output the initialised
+%   Comsol model to the object COMSOLMODEL.
 %
 %   See also setupModel, buildComsolModel, modelRfq, getModelParameters,
 %   logMessage.
-
 
 % File released under the GNU public license.
 % Originally written by Matt Easton. Based on code by Simon Jolly.
@@ -24,6 +34,10 @@ function comsolModel = initialiseModel(modelPath)
 %       Built function initialiseModel from mphrfqsetup and subroutines. 
 %       Included in ModelRFQ distribution.
 %
+%   27-May-2011 S. Jolly
+%       Removed error checking (contained in wrapper functions) and
+%       streamlined input variable parsing.
+%
 %======================================================================
 
 %% Declarations 
@@ -33,36 +47,26 @@ function comsolModel = initialiseModel(modelPath)
     
 %% Check syntax 
 
-    try %to test syntax 
-        if nargin < 1 %then throw error ModelRFQ:ComsolInterface:initialiseModel:insufficientInputArguments 
-            error('ModelRFQ:ComsolInterface:initialiseModel:insufficientInputArguments', ...
-                  'Too few input variables: syntax is comsolModel = initialiseModel(modelPath)');
-        end
-        if nargin > 1 %then throw error ModelRFQ:ComsolInterface:initialiseModel:excessiveInputArguments 
-            error('ModelRFQ:ComsolInterface:initialiseModel:excessiveInputArguments', ...
-                  'Too many input variables: syntax is comsolModel = initialiseModel(modelPath)');
-        end
-        if nargout < 1 %then throw error ModelRFQ:ComsolInterface:initialiseModel:insufficientOutputArguments 
-            error('ModelRFQ:ComsolInterface:initialiseModel:insufficientOutputArguments', ...
-                  'Too few output variables: syntax is comsolModel = initialiseModel(modelPath)');
-        end
-        if nargout > 1 %then throw error ModelRFQ:ComsolInterface:initialiseModel:excessiveOutputArguments 
-            error('ModelRFQ:ComsolInterface:initialiseModel:excessiveOutputArguments', ...
-                  'Too many output variables: syntax is comsolModel = initialiseModel(modelPath)');
-        end
-    catch exception
-        message = struct;
-        message.identifier = 'ModelRFQ:ComsolInterface:initialiseModel:syntaxException';
-        message.text = 'Syntax error calling initialiseModel';
-        message.priorityLevel = 6;
-        message.errorLevel = 'error';
-        message.exception = exception;
-        logMessage(message);
+    if nargin < 1 %then throw error ModelRFQ:ComsolInterface:initialiseModel:insufficientInputArguments 
+        error('ModelRFQ:ComsolInterface:initialiseModel:insufficientInputArguments', ...
+              'Too few input variables: syntax is comsolModel = initialiseModel(modelPath)');
+    end
+    if nargin > 1 %then throw error ModelRFQ:ComsolInterface:initialiseModel:excessiveInputArguments 
+        error('ModelRFQ:ComsolInterface:initialiseModel:excessiveInputArguments', ...
+              'Too many input variables: syntax is comsolModel = initialiseModel(modelPath)');
+    end
+%    if nargout < 1 %then throw error ModelRFQ:ComsolInterface:initialiseModel:insufficientOutputArguments 
+%        error('ModelRFQ:ComsolInterface:initialiseModel:insufficientOutputArguments', ...
+%              'Too few output variables: syntax is comsolModel = initialiseModel(modelPath)');
+%    end
+    if nargout > 1 %then throw error ModelRFQ:ComsolInterface:initialiseModel:excessiveOutputArguments 
+        error('ModelRFQ:ComsolInterface:initialiseModel:excessiveOutputArguments', ...
+              'Too many output variables: syntax is comsolModel = initialiseModel(modelPath)');
     end
 
 %% Initialise model: path, geometry, mesh, electrostatics and study 
 
-    comsolModel = ModelUtil.create('Model');
+    comsolModel = ModelUtil.create('RFQ');
     comsolModel.modelPath(modelPath);
     comsolModel.modelNode.create('mod1');
     comsolModel.geom.create('geom1', 3);
@@ -72,4 +76,4 @@ function comsolModel = initialiseModel(modelPath)
     comsolModel.study('std1').feature.create('stat', 'Stationary');
     comsolModel.sol.create('sol1');
 
-return
+    return

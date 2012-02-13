@@ -90,4 +90,4 @@ function fieldMap = getFieldMap(comsolModel, coordinates)
     fieldMap(:,1:3) = coordinates;
     [fieldMap(:,4),fieldMap(:,5),fieldMap(:,6)] = mphinterp(model, {'es.Ex','es.Ey','es.Ez'}, 'coord', coordinates.');
 
-return
+    return

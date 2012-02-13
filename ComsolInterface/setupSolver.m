@@ -4,8 +4,6 @@ function outputModel = setupSolver(inputModel)
 %
 %    setupSolver.m - Build mesh for RFQ vane quadrant
 %
-%    Based on mphsetupsolver by Simon Jolly.
-%
 %    outputModel = setupSolver(inputModel)
 %
 %    setupSolver sets up the electrostatic solver for the Comsol RFQ
@@ -67,4 +65,4 @@ function outputModel = setupSolver(inputModel)
 
     outputModel = inputModel ;
 
-return
+    return

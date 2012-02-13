@@ -1,17 +1,35 @@
-function [comsolModel, selectionNames] ...
+function [comsolModel, selectionNames, vaneBoundBoxes, modelBoundBox, outputParameters] ...
     = setupModel(modelPath, modelFile, cadFile, r0, rho, vaneVoltage, initialCellNo, ...
-                 cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, ...
-                 beamBoxWidth, nBeamBoxCells)
+                 nCells, cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, ...
+                 beamBoxWidth, nBeamBoxCells, fourQuad, inputParameters)
 %
-% function [comsolModel, selectionNames] ...
+% function [comsolModel, selectionNames, vaneBoundBoxes, modelBoundBox, outputParameters] ...
 %    = setupModel(modelPath, modelFile, cadFile, r0, rho, vaneVoltage, initialCellNo, ...
+%                 nCells, cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, ...
+%                 beamBoxWidth, nBeamBoxCells, inputParameters, fourQuad)
+%
+%   SETUPMODEL.M - sets up an RFQ vane tip model in Comsol.
+%
+%   setupModel(modelPath, modelFile, cadFile, r0, rho, vaneVoltage, initialCellNo, ...
+%                 nCells, cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, ...
+%                 beamBoxWidth, nBeamBoxCells)
+%   setupModel(..., inputParameters)
+%
+%   [comsolModel] = setupModel(...)
+%   [comsolModel, selectionNames] = setupModel(...)
+%   [comsolModel, selectionNames, vaneBoundBoxes] = setupModel(...)
+%   [comsolModel, selectionNames, vaneBoundBoxes, modelBoundBox] = setupModel(...)
+%   [comsolModel, selectionNames, vaneBoundBoxes, modelBoundBox, outputParameters] = setupModel(...)
+%
+%   setupModel is used to import a CAD model of an RFQ vane tip model into
+%   Comsol and create an electrostatic model of a positive quadrant of a
+%   single RFQ cell ready for field mapping.  The nominal syntax is:
+%
+%   setupModel(modelPath, modelFile, cadFile, r0, rho, vaneVoltage, initialCellNo, ...
 %                 cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, ...
 %                 beamBoxWidth, nBeamBoxCells)
 %
-% setupModel sets up an RFQ vane tip model in Comsol. Based on various mph
-% functions by Simon Jolly.
-%
-% All input variables are required; these are:
+%   All input variables are required; these are:
 %       modelPath       - path to Comsol model
 %       modelFile       - filename to save Comsol model
 %       cadFile         - CAD file containing Inventor vane model data
@@ -19,19 +37,39 @@ function [comsolModel, selectionNames] ...
 %       rho             - rho for CAD model
 %       vaneVoltage     - vane-to-vane voltage (normally 85kV)
 %       initialCellNo   - number of cell used for setting up model (usually 4 or 5)
+%       nCells          - number of cells in entire CAD model
 %       cellStart       - z-location of start of first cell to be solved
 %       cellEnd         - z-location of end of first cell to be solved
 %       selectionStart  - z-location of start of selection region
 %       selectionEnd    - z-location of end of selection region
-%       boxWidth       - transverse size of modelled volume
+%       boxWidth        - transverse size of modelled volume
 %       beamBoxWidth    - size of inner beam box air volume
 %       nBeamBoxCells   - number of transverse mesh cells in inner beam box
 %
-% Credit for the majority of the modelling code must go to Simon Jolly of
-% Imperial College London.
+%   [...] = setupModel(..., inputParameters) - also specify parameters to
+%   be passed to logMessage for information logging and display, produced
+%   by getModelParameters.
+%
+%   [comsolModel] = setupModel(...) - outputs the Comsol model object as
+%   COMSOLMODEL.
+%
+%   [comsolModel, selectionNames] = setupModel(...) - provides a structure,
+%   SELECTIONNAMES, containing the names of the selections for each of the
+%   domains in the Comsol model.
+%
+%   [comsolModel, selectionNames, vaneBoundBoxes] = setupModel(...) -
+%   return the Bounding Boxes of each of the 4 vane objects in the Comsol
+%   model as VANEBOUNDBOXES.
+%
+%   [comsolModel, selectionNames, vaneBoundBoxes, modelBoundBox] = setupModel(...)
+%   - also outputs the Bounding Box surrounding the whole model as
+%   MODELBOUNDBOX.
+%
+%   [comsolModel, selectionNames, vaneBoundBoxes, modelBoundBox, outputParameters] = setupModel(...)
+%   - returns the parameters from logMessage as the structure
+%   outputParameters.
 %
 % See also buildComsolModel, modelRfq, getModelParameters, logMessage.
-
 
 % File released under the GNU public license.
 % Originally written by Matt Easton. Based on code by Simon Jolly.
@@ -50,6 +88,15 @@ function [comsolModel, selectionNames] ...
 %       Split setupComsolModel into setupModel and subroutines to allow
 %       unit testing of separate parts.
 %
+%   24-May-2011 S. Jolly
+%       Modified logMessage references to use "parameters" variable and
+%       stop multiple accesses of log file.  Added passing of "parameters"
+%       variable to all sub-functions.  Included references to bounding
+%       boxes of individual vanes and complete model.
+%
+%   21-Nov-2011 S. Jolly
+%       Added fourQuad variable to create 4-quadrant model.
+%
 %======================================================================
 
 %% Declarations 
@@ -59,22 +106,45 @@ function [comsolModel, selectionNames] ...
     
 %% Check syntax 
 
-    try %to test syntax 
-        if nargin < 14 %then throw error ModelRFQ:ComsolInterface:setupModel:insufficientInputArguments 
+    if nargin < 17 || isempty(inputParameters) || ~isstruct(inputParameters) %then create parameters
+        parameters = struct ;
+        warning('ModelRFQ:ComsolInterface:setupModel:incorrectParameters', ...
+                'Invalid parameters structure. Using default parameters.') ;
+    else % store parameters
+        parameters = inputParameters ;
+    end
+    if nargin < 16 || isempty(fourQuad)
+        fourQuad = false ;
+    end
+
+    if ~isfield(parameters, 'options') || ~isstruct(parameters.options)
+        parameters.options = struct ;
+    end
+    if ~isfield(parameters.options, 'verbosity') || ~isstruct(parameters.options.verbosity)
+        parameters.options.verbosity = struct ;
+    end
+    if ~isfield(parameters.options.verbosity, 'toPlots') || ~isnumeric(parameters.options.verbosity.toPlots)
+        parameters.options.verbosity.toPlots = 0 ;
+    end
+
+    try %to test syntax
+        if nargin < 15 %then throw error ModelRFQ:ComsolInterface:setupModel:insufficientInputArguments 
             error('ModelRFQ:ComsolInterface:setupModel:insufficientInputArguments', ...
-                  'Too few input variables: syntax is setupModel(modelPath, modelFile, cadFile, r0, rho, vaneVoltage, initialCellNo, cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, beamBoxWidth, nBeamBoxCells)');
+                  ['Too few input variables: syntax is setupModel(modelPath, modelFile, cadFile, r0, rho, vaneVoltage, ' ...
+                  'initialCellNo, nCells, cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, beamBoxWidth, nBeamBoxCells)']);
         end
-        if nargin > 14 %then throw error ModelRFQ:ComsolInterface:setupModel:excessiveInputArguments 
+        if nargin > 17 %then throw error ModelRFQ:ComsolInterface:setupModel:excessiveInputArguments 
             error('ModelRFQ:ComsolInterface:setupModel:excessiveInputArguments', ...
-                  'Too many input variables: syntax is setupModel(modelPath, modelFile, cadFile, r0, rho, vaneVoltage, initialCellNo, cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, beamBoxWidth, nBeamBoxCells)');
+                  ['Too many input variables: syntax is setupModel(modelPath, modelFile, cadFile, r0, rho, vaneVoltage, initialCellNo, ' ...
+                  'nCells, cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, beamBoxWidth, nBeamBoxCells, fourQuad, inputParameters)']);
         end
-        if nargout < 2 %then throw error ModelRFQ:ComsolInterface:setupModel:insufficientOutputArguments 
-            error('ModelRFQ:ComsolInterface:setupModel:insufficientOutputArguments', ...
-                  'Too few output variables: syntax is [comsolModel, selectionNames] = setupModel(...)');
-        end
-        if nargout > 2 %then throw error ModelRFQ:ComsolInterface:setupModel:excessiveOutputArguments 
+%        if nargout < 2 %then throw error ModelRFQ:ComsolInterface:setupModel:insufficientOutputArguments 
+%            error('ModelRFQ:ComsolInterface:setupModel:insufficientOutputArguments', ...
+%                  'Too few output variables: syntax is [comsolModel, selectionNames] = setupModel(...)');
+%        end
+        if nargout > 5 %then throw error ModelRFQ:ComsolInterface:setupModel:excessiveOutputArguments 
             error('ModelRFQ:ComsolInterface:setupModel:excessiveOutputArguments', ...
-                  'Too many output variables: syntax is [comsolModel, selectionNames] = setupModel(...)');
+                  'Too many output variables: syntax is [comsolModel, selectionNames, vaneBoundBoxes, modelBoundBox, outputParameters] = setupModel(...)');
         end
     catch exception
         message = struct;
@@ -83,7 +153,7 @@ function [comsolModel, selectionNames] ...
         message.priorityLevel = 5;
         message.errorLevel = 'error';
         message.exception = exception;
-        logMessage(message);
+        parameters = logMessage(message, parameters) ;
     end
 
 %% Initialise model: path, geometry, mesh, electrostatics and study 
@@ -95,7 +165,7 @@ function [comsolModel, selectionNames] ...
             message.text = '    > Initialising...';
             message.priorityLevel = 6;
             message.errorLevel = 'information';
-            logMessage(message);
+            parameters = logMessage(message, parameters) ;
             clear message;
         catch exception
             errorMessage = struct;
@@ -104,9 +174,9 @@ function [comsolModel, selectionNames] ...
             errorMessage.priorityLevel = 8;
             errorMessage.errorLevel = 'warning';
             errorMessage.exception = exception;
-            logMessage(errorMessage);
+            parameters = logMessage(errorMessage, parameters) ;
         end
-        comsolModel = initialiseModel(modelPath);
+        comsolModel = initialiseModel(modelPath) ;
     catch exception
         errorMessage = struct;
         errorMessage.identifier = 'ModelRFQ:ComsolInterface:setupModel:initialiseModel:runException';
@@ -114,11 +184,11 @@ function [comsolModel, selectionNames] ...
         errorMessage.priorityLevel = 6;
         errorMessage.errorLevel = 'error';
         errorMessage.exception = exception;
-        logMessage(errorMessage);
+        parameters = logMessage(errorMessage, parameters) ;
     end
     
 %% Main block 
-    
+
     try %to create model 
         try %to create parameters 
             try %to notify start 
@@ -127,7 +197,7 @@ function [comsolModel, selectionNames] ...
                 message.text = '    > Creating parameters...';
                 message.priorityLevel = 6;
                 message.errorLevel = 'information';
-                logMessage(message);
+                logMessage(message, parameters) ;
                 clear message;
             catch exception
                 errorMessage = struct;
@@ -136,9 +206,9 @@ function [comsolModel, selectionNames] ...
                 errorMessage.priorityLevel = 8;
                 errorMessage.errorLevel = 'warning';
                 errorMessage.exception = exception;
-                logMessage(errorMessage);
+                logMessage(errorMessage, parameters) ;
             end
-            comsolModel = createParameters(comsolModel, r0, rho, boxWidth, beamBoxWidth, vaneVoltage, initialCellNo, cellStart, cellEnd, selectionStart, selectionEnd);
+            comsolModel = createParameters(comsolModel, r0, rho, boxWidth, beamBoxWidth, vaneVoltage, initialCellNo, nCells, cellStart, cellEnd, selectionStart, selectionEnd) ;
         catch exception
             errorMessage = struct;
             errorMessage.identifier = 'ModelRFQ:ComsolInterface:setupModel:createParameters:runException';
@@ -146,10 +216,10 @@ function [comsolModel, selectionNames] ...
             errorMessage.priorityLevel = 6;
             errorMessage.errorLevel = 'error';
             errorMessage.exception = exception;
-            logMessage(errorMessage);
+            logMessage(errorMessage, parameters) ;
         end
         try %to create geometry 
-            [comsolModel, selectionNames] = createGeometry(comsolModel, cadFile);
+            [comsolModel, selectionNames, vaneBoundBoxes, modelBoundBox] = createGeometry(comsolModel, cadFile, fourQuad, parameters) ;
         catch exception
             errorMessage = struct;
             errorMessage.identifier = 'ModelRFQ:ComsolInterface:setupModel:createGeometry:runException';
@@ -157,7 +227,7 @@ function [comsolModel, selectionNames] ...
             errorMessage.priorityLevel = 6;
             errorMessage.errorLevel = 'error';
             errorMessage.exception = exception;
-            logMessage(errorMessage);
+            logMessage(errorMessage, parameters) ;
         end
         try %to specify air volumes 
             try %to notify start 
@@ -166,7 +236,7 @@ function [comsolModel, selectionNames] ...
                 message.text = '    > Specifying air domain...';
                 message.priorityLevel = 6;
                 message.errorLevel = 'information';
-                logMessage(message);
+                logMessage(message, parameters) ;
                 clear message;
             catch exception
                 errorMessage = struct;
@@ -175,9 +245,9 @@ function [comsolModel, selectionNames] ...
                 errorMessage.priorityLevel = 8;
                 errorMessage.errorLevel = 'warning';
                 errorMessage.exception = exception;
-                logMessage(errorMessage);
+                logMessage(errorMessage, parameters) ;
             end        
-            comsolModel = specifyAirVolumes(comsolModel, selectionNames);
+            comsolModel = specifyAirVolumes(comsolModel, selectionNames) ;
         catch exception
             errorMessage = struct;
             errorMessage.identifier = 'ModelRFQ:ComsolInterface:setupModel:specifyAir:runException';
@@ -185,7 +255,7 @@ function [comsolModel, selectionNames] ...
             errorMessage.priorityLevel = 6;
             errorMessage.errorLevel = 'error';
             errorMessage.exception = exception;
-            logMessage(errorMessage);
+            logMessage(errorMessage, parameters) ;
         end
         try %to specify electrostatic terminals 
             try %to notify start 
@@ -194,7 +264,7 @@ function [comsolModel, selectionNames] ...
                 message.text = '    > Specifying electrostatic terminals...';
                 message.priorityLevel = 6;
                 message.errorLevel = 'information';
-                logMessage(message);
+                logMessage(message, parameters) ;
                 clear message;
             catch exception
                 errorMessage = struct;
@@ -203,9 +273,9 @@ function [comsolModel, selectionNames] ...
                 errorMessage.priorityLevel = 8;
                 errorMessage.errorLevel = 'warning';
                 errorMessage.exception = exception;
-                logMessage(errorMessage);
+                logMessage(errorMessage, parameters) ;
             end
-            comsolModel = specifyTerminals(comsolModel, selectionNames);
+            comsolModel = specifyTerminals(comsolModel, selectionNames) ;
         catch exception
             errorMessage = struct;
             errorMessage.identifier = 'ModelRFQ:ComsolInterface:setupModel:specifyTerminals:runException';
@@ -213,7 +283,7 @@ function [comsolModel, selectionNames] ...
             errorMessage.priorityLevel = 6;
             errorMessage.errorLevel = 'error';
             errorMessage.exception = exception;
-            logMessage(errorMessage);
+            logMessage(errorMessage, parameters) ;
         end
         try %to create mesh 
             try %to notify start 
@@ -222,7 +292,7 @@ function [comsolModel, selectionNames] ...
                 message.text = '    > Creating mesh...';
                 message.priorityLevel = 6;
                 message.errorLevel = 'information';
-                logMessage(message);
+                logMessage(message, parameters) ;
                 clear message;
             catch exception
                 errorMessage = struct;
@@ -231,9 +301,9 @@ function [comsolModel, selectionNames] ...
                 errorMessage.priorityLevel = 8;
                 errorMessage.errorLevel = 'warning';
                 errorMessage.exception = exception;
-                logMessage(errorMessage);
+                logMessage(errorMessage, parameters) ;
             end
-            comsolModel = createMesh(comsolModel, selectionNames, nBeamBoxCells);
+            comsolModel = createMesh(comsolModel, selectionNames, nBeamBoxCells, parameters) ;
         catch exception
             errorMessage = struct;
             errorMessage.identifier = 'ModelRFQ:ComsolInterface:setupModel:createMesh:runException';
@@ -241,7 +311,7 @@ function [comsolModel, selectionNames] ...
             errorMessage.priorityLevel = 6;
             errorMessage.errorLevel = 'error';
             errorMessage.exception = exception;
-            logMessage(errorMessage);
+            logMessage(errorMessage, parameters) ;
         end
         try %to setup solver 
             try %to notify start 
@@ -250,7 +320,7 @@ function [comsolModel, selectionNames] ...
                 message.text = '    > Setting up electrostatic solver...';
                 message.priorityLevel = 6;
                 message.errorLevel = 'information';
-                logMessage(message);
+                logMessage(message, parameters) ;
                 clear message;
             catch exception
                 errorMessage = struct;
@@ -259,9 +329,9 @@ function [comsolModel, selectionNames] ...
                 errorMessage.priorityLevel = 8;
                 errorMessage.errorLevel = 'warning';
                 errorMessage.exception = exception;
-                logMessage(errorMessage);
+                logMessage(errorMessage, parameters) ;
             end
-            comsolModel = setupSolver(comsolModel);
+            comsolModel = setupSolver(comsolModel) ;
         catch exception
             errorMessage = struct;
             errorMessage.identifier = 'ModelRFQ:ComsolInterface:setupModel:setupSolver:runException';
@@ -269,27 +339,17 @@ function [comsolModel, selectionNames] ...
             errorMessage.priorityLevel = 6;
             errorMessage.errorLevel = 'error';
             errorMessage.exception = exception;
-            logMessage(errorMessage);
+            logMessage(errorMessage, parameters) ;
         end
         try %to set up plots 
-            try %to notify start 
-                message = struct;
-                message.identifier = 'ModelRFQ:ComsolInterface:setupModel:setupPlots:start';
-                message.text = '    > Creating plots...';
-                message.priorityLevel = 6;
-                message.errorLevel = 'information';
-                logMessage(message);
-                clear message;
-            catch exception
-                errorMessage = struct;
-                errorMessage.identifier = 'ModelRFQ:ComsolInterface:setupModel:setupPlots:startException';
-                errorMessage.text = 'Could not notify start of section';
-                errorMessage.priorityLevel = 8;
-                errorMessage.errorLevel = 'warning';
-                errorMessage.exception = exception;
-                logMessage(errorMessage);
-            end
-            comsolModel = setupPlots(comsolModel, selectionNames);            
+            message = struct;
+            message.identifier = 'ModelRFQ:ComsolInterface:setupModel:setupPlots';
+            message.text = '    > Creating plots...';
+            message.priorityLevel = 6;
+            message.errorLevel = 'information';
+            logMessage(message, parameters) ;
+            clear message;
+            comsolModel = setupPlots(comsolModel, selectionNames) ;
         catch exception
             errorMessage = struct;
             errorMessage.identifier = 'ModelRFQ:ComsolInterface:setupModel:setupPlots:runException';
@@ -297,45 +357,19 @@ function [comsolModel, selectionNames] ...
             errorMessage.priorityLevel = 6;
             errorMessage.errorLevel = 'error';
             errorMessage.exception = exception;
-            logMessage(errorMessage);
-        end
-        try %to save model 
-            try %to notify start 
-                message = struct;
-                message.identifier = 'ModelRFQ:ComsolInterface:setupModel:saveModel:start';
-                message.text = '    > Saving model...';
-                message.priorityLevel = 6;
-                message.errorLevel = 'information';
-                logMessage(message);
-                clear message;
-            catch exception
-                errorMessage = struct;
-                errorMessage.identifier = 'ModelRFQ:ComsolInterface:setupModel:saveModel:startException';
-                errorMessage.text = 'Could not notify start of section';
-                errorMessage.priorityLevel = 8;
-                errorMessage.errorLevel = 'warning';
-                errorMessage.exception = exception;
-                logMessage(errorMessage);
-            end
-            comsolModel.save(fullfile(modelPath, modelFile));
-        catch exception
-            errorMessage = struct;
-            errorMessage.identifier = 'ModelRFQ:ComsolInterface:setupComsolModel:saveException';
-            errorMessage.text = 'Could not save Comsol model';
-            errorMessage.priorityLevel = 6;
-            errorMessage.errorLevel = 'error';
-            errorMessage.exception = exception;
-            logMessage(errorMessage);
+            logMessage(errorMessage, parameters) ;
         end
     catch exception
-        try %to save model so user can manually find the problem 
-            comsolModel.save([modelPath filesep modelFile]);
+        try %to save model so user can manually find the problem
+            comsolModel.save(fullfile(modelPath, modelFile));
+%            comsolModel.save(modelFile);
             message = struct;
             message.identifier = 'ModelRFQ:ComsolInterface:buildComsolModel:setupModel:saveModel';
-            message.text = ['Comsol model saved as ' regexprep([modelPath filesep modelFile], '\\', '\\\\') ' for troubleshooting.'];
+            message.text = ['Comsol model saved as ' regexprep(fullfile(modelPath, modelFile), '\\', '\\\\') ' for troubleshooting.'];
+%            message.text = ['Comsol model saved as ' regexprep(modelFile, '\\', '\\\\') ' for troubleshooting.'];
             message.priorityLevel = 6;
             message.errorLevel = 'information';
-            logMessage(message);
+            logMessage(message, parameters) ;
         catch exception
             errorMessage = struct;
             errorMessage.identifier = 'ModelRFQ:ComsolInterface:buildComsolModel:setupModel:saveModelException';
@@ -343,9 +377,12 @@ function [comsolModel, selectionNames] ...
             errorMessage.priorityLevel = 8;
             errorMessage.errorLevel = 'warning';
             errorMessage.exception = exception;
-            logMessage(errorMessage);
+            logMessage(errorMessage, parameters) ;
         end
         rethrow(exception);
     end
 
-return
+    outputParameters = parameters ;
+
+    return
+

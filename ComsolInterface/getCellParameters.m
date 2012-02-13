@@ -1,18 +1,18 @@
 function [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, isAcrossMatchingSectionBoundary] ...
-          = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells)
+          = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells, vaneModelStart, vaneModelEnd)
 %
 % function [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, isAcrossMatchingSectionBoundary] 
-%           = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells)
+%           = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells, vaneModelStart, vaneModelEnd)
 %
 %    getCellParameters.m - Output start and end cell locations
-%
-%    Based on rfqcellparams code written by Simon Jolly.
 %
 %    [cellStart, cellEnd] = getCellParameters(lengthData, cellNo)
 %    [...] = getCellParameters(lengthData, cellNo, cadOffset)
 %    [...] = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight)
 %    [...] = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho)
 %    [...] = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells)
+%    [...] = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells, vaneModelStart)
+%    [...] = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells, vaneModelStart, vaneModelEnd)
 %    [cellStart, cellEnd, selectionStart, selectionEnd] = getCellParameters(...)
 %    [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth] = getCellParameters(...)
 %    [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, isAcrossMatchingSectionBoundary] = getCellParameters(...)
@@ -65,17 +65,27 @@ function [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, isAcrossMa
 %    the matching section is a quarter circle.  The default value is
 %    RHO = 3.1076e-3 (3.1076 mm) and must be given in metres.
 %
+%    [...] = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells)
+%    - specify the number of extra cells either side of those specified in
+%    cellNo to be included in the selection region.  The defualt value is
+%    nExtraCells = 1 ;
+%
+%    [...] = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells, vaneModelStart)
+%    - specify the start location of the CAD model.  This is used primarily
+%    when there are end plates or other objects that need to be modelled
+%    that sit before the start of the matching section and would otherwise
+%    get missed by the selection region.
+%
+%    [...] = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells, vaneModelStart, vaneModelEnd)
+%    - also specify the end location of the CAD model, for the same reasons
+%    as above.
+%
 %    [cellStart, cellEnd, selectionStart, selectionEnd] = getCellParameters(...) - outputs
 %    the start and end of the selection region to the variables selectionStart
 %    and selectionEnd.  The selection region is one cell longer at either end
 %    than the selected number of cells.  For example, if cellNo = [2 5],
 %    cellStart is the start of cell 2, cellEnd is the end of cell 5,
 %    selectionStart is the start of cell 1 and selectionEnd is the end of cell 6.
-%
-%    [...] = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells)
-%    - specify the number of extra cells either side of those specified in
-%    cellNo to be included in the selection region.  The defualt value is
-%    nExtraCells = 1 ;
 %
 %    [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth] = getCellParameters(...)
 %    - also output the transverse width of the selection box surrounding
@@ -104,6 +114,12 @@ function [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, isAcrossMa
 %       Adapted to include in ModelRFQ distribution.
 %       All functional code unchanged.
 %
+%   30-May-2011 S. Jolly
+%       Added extra vaneModelStart and vaneModelEnd input parameters and
+%       changed cell numbering to account for longer matching in section
+%       that includes front plate and matching out section/end region
+%       around vane ends, including end plate.
+%
 %======================================================================
 
 %% Check syntax 
@@ -112,14 +128,15 @@ function [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, isAcrossMa
         error('ModelRFQ:ComsolInterface:getCellParameters:insufficientInputArguments', ...
               'Too few input variables: syntax is [cellStart, cellEnd] = getCellParameters(lengthData, cellNo)');
     end
-    if nargin > 6 %then throw error ModelRFQ:ComsolInterface:getCellParameters:excessiveInputArguments 
+    if nargin > 8 %then throw error ModelRFQ:ComsolInterface:getCellParameters:excessiveInputArguments 
         error('ModelRFQ:ComsolInterface:getCellParameters:excessiveInputArguments', ...
-              'Too many input variables: syntax is [...] = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells)');
+              ['Too many input variables: syntax is [...] = getCellParameters(lengthData, ' ...
+              'cellNo, cadOffset, verticalCellHeight, rho, nExtraCells, vaneModelStart, vaneModelEnd)']);
     end
-    if nargout < 2 %then throw error ModelRFQ:ComsolInterface:getCellParameters:insufficientOutputArguments 
-        error('ModelRFQ:ComsolInterface:getCellParameters:insufficientOutputArguments', ...
-              'Too few output variables: syntax is [cellStart, cellEnd] = getCellParameters(lengthData, cellNo)');
-    end
+%    if nargout < 2 %then throw error ModelRFQ:ComsolInterface:getCellParameters:insufficientOutputArguments 
+%        error('ModelRFQ:ComsolInterface:getCellParameters:insufficientOutputArguments', ...
+%              'Too few output variables: syntax is [cellStart, cellEnd] = getCellParameters(lengthData, cellNo)');
+%    end
     if nargout > 6 %then throw error ModelRFQ:ComsolInterface:getCellParameters:excessiveOutputArguments 
         error('ModelRFQ:ComsolInterface:getCellParameters:excessiveOutputArguments', ...
               'Too many output variables: syntax is [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, isAcrossMatchingSectionBoundary] = getCellParameters(...)');
@@ -148,18 +165,49 @@ function [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, isAcrossMa
     lastCell = max(round(cellNo)) ;
 
     reshapedLengthData = reshape(lengthData,[],1) ;
+    nCells = length(reshapedLengthData) ;
 
     totalCells = [0; cumsum(reshapedLengthData)] ;
     totalCells = totalCells + cadOffset ;
 
+    if nargin < 8 || isempty(vaneModelEnd) || vaneModelEnd < totalCells(end)
+        vaneModelEnd = totalCells(end) ;
+    end
+    if nargin < 7 || isempty(vaneModelStart) || vaneModelStart > totalCells(1)
+        vaneModelStart = totalCells(1) ;
+    end
+
     if firstCell < 1
-        error('ModelRFQ:ComsolInterface:getCellParameters:incorrectFirstCell', ...
-              'Minimum cell number must be 1 or greater');
-    elseif lastCell > length(lengthData)
-        error('ModelRFQ:ComsolInterface:getCellParameters:incorrectLastCell', ...
-              'Maxmimum cell number cannot be greater than the number of RFQ cells');
+        warning('ModelRFQ:ComsolInterface:getCellParameters:incorrectFirstCell', ...
+            'Minimum cell number must be 1 or greater: setting minimum cell number to 1') ;
+        firstCell = 1 ;
+        cellStart = vaneModelStart ;
+    elseif firstCell > nCells
+        warning('ModelRFQ:ComsolInterface:getCellParameters:incorrectFirstCell', ...
+            'Minimum cell number is greater than the number of RFQ cells: using defult end region values') ;
+        firstCell = nCells + 1 ;
+        cellStart = totalCells(end) ;
+    elseif firstCell == 1
+        cellStart = vaneModelStart ;
     else
         cellStart = totalCells(firstCell) ;
+    end
+
+    if lastCell < 1
+        warning('ModelRFQ:ComsolInterface:getCellParameters:incorrectLastCell', ...
+            'Maxmimum cell number is must be 1 or greater: using defult end region values') ;
+        lastCell = 1 ;
+        cellEnd = totalCells(2) ;
+    elseif lastCell > nCells
+        warning('ModelRFQ:ComsolInterface:getCellParameters:incorrectLastCell', ...
+            'Maxmimum cell number is greater than the number of RFQ cells: using defult end region values') ;
+        lastCell = nCells + 1 ;
+        if vaneModelEnd < ( totalCells(end) + reshapedLengthData(end) )
+            cellEnd = totalCells(end) + reshapedLengthData(end) ;
+        else
+            cellEnd = vaneModelEnd ;
+        end
+    else
         cellEnd = totalCells(lastCell + 1) ;
     end
 
@@ -169,7 +217,7 @@ function [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, isAcrossMa
     lastSelectionCell = lastCell + nExtraCells;
 
     if firstSelectionCell <= 1
-        boxWidth = lengthData(1) + rho;
+        boxWidth = reshapedLengthData(1) + rho;
     else
         boxWidth = verticalCellHeight;
     end
@@ -181,13 +229,13 @@ function [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, isAcrossMa
     end
 
     if firstSelectionCell < 1
-        selectionStart = totalCells(1) - lengthData(1) ;
+        selectionStart = cellStart - reshapedLengthData(1) ;
     else
         selectionStart = totalCells(firstSelectionCell) ;
     end
 
-    if lastSelectionCell > length(lengthData)
-        selectionEnd = totalCells(end) + lengthData(end) ;
+    if lastSelectionCell > nCells
+        selectionEnd = cellEnd + reshapedLengthData(end) ;
     else
         selectionEnd = totalCells(lastSelectionCell + 1) ;
     end
@@ -195,9 +243,9 @@ function [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, isAcrossMa
     if isAcrossMatchingSectionBoundary
         selectionStart = selectionStart - lengthData(1)./10 ;
     end
-    
-    if firstSelectionCell < 1
-        selectionStart = totalCells(1) - 7e-3;
-    end
 
-return
+%    if firstSelectionCell < 1
+%        selectionStart = totalCells(1) - 7e-3;
+%    end
+
+    return

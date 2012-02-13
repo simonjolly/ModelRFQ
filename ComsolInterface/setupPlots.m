@@ -1,15 +1,35 @@
-function comsolModel = setupPlots(comsolModel, selectionNames)
+function [comsolModel] = setupPlots(comsolModel, selectionNames)
 %
 % function comsolModel = setupPlots(comsolModel, selectionNames)
 %
-%   setupPlots defines the plots for the given Comsol model.
+%   SETUPPLOTS.M - set up RFQ study plots.
 %
-%   Credit for the majority of the modelling code must go to Simon Jolly of
-%   Imperial College London.
+%   setupPlots(comsolModel)
+%   setupPlots(comsolModel, selectionNames)
+%   comsolModel = setupPlots(...)
+%
+%   setupPlots defines the plots for the given Comsol model.  4 different
+%   plots are created: the electric potential within the whole air volume;
+%   5 longitudinal slices through the air volume showing electrostatic
+%   potential and field; the electrostatic potential and field in the air
+%   domain at X=0; and the transverse electrostatic field on-axis ie. Z=0.
+%
+%   setupPlots(comsolModel) - set up plots for the Comsol model
+%   COMSOLMODEL.  Default selection names are used for the air domains
+%   ('sel7') and the beam boxes ('sel21').
+%
+%   setupPlots(comsolModel, selectionNames) - also specify the names
+%   of the selections.  SELECTIONNAMES is a Matlab structure containing
+%   strings of the names of various selections for the Comsol model:
+%   selectionNames.airVolumes contains the name of the air domain selection
+%   and selectionNames.beamBoxes the beam box selection (both inner and
+%   outer).
+%
+%   comsolModel = setupPlots(...) - output the modified Comsol model
+%   as the Matlab object COMSOLMODEL.
 %
 %   See also setupModel, buildComsolModel, modelRfq, getModelParameters,
 %   logMessage.
-
 
 % File released under the GNU public license.
 % Originally written by Matt Easton. Based on code by Simon Jolly.
@@ -24,6 +44,10 @@ function comsolModel = setupPlots(comsolModel, selectionNames)
 %       Built function setupPlots from mphrfqsetup and subroutines. 
 %       Included in ModelRFQ distribution.
 %
+%   27-May-2011 S. Jolly
+%       Removed error checking (contained in wrapper functions) and
+%       streamlined input variable parsing.
+%
 %======================================================================
 
 %% Declarations 
@@ -31,34 +55,30 @@ function comsolModel = setupPlots(comsolModel, selectionNames)
     import com.comsol.model.*
     import com.comsol.model.util.*
     
-%% Check syntax 
+%% Check syntax
 
-    try %to test syntax 
-        if nargin < 2 %then throw error ModelRFQ:ComsolInterface:setupPlots:insufficientInputArguments 
-            error('ModelRFQ:ComsolInterface:setupPlots:insufficientInputArguments', ...
-                  'Too few input variables: syntax is comsolModel = setupPlots(comsolModel, selectionNames)');
-        end
-        if nargin > 2 %then throw error ModelRFQ:ComsolInterface:setupPlots:excessiveInputArguments 
-            error('ModelRFQ:ComsolInterface:setupPlots:excessiveInputArguments', ...
-                  'Too many input variables: syntax is comsolModel = setupPlots(comsolModel, selectionNames)');
-        end
-        if nargout < 1 %then throw error ModelRFQ:ComsolInterface:setupPlots:insufficientOutputArguments 
-            error('ModelRFQ:ComsolInterface:setupPlots:insufficientOutputArguments', ...
-                  'Too few output variables: syntax is comsolModel = setupPlots(comsolModel, selectionNames)');
-        end
-        if nargout > 1 %then throw error ModelRFQ:ComsolInterface:setupPlots:excessiveOutputArguments 
-            error('ModelRFQ:ComsolInterface:setupPlots:excessiveOutputArguments', ...
-                  'Too many output variables: syntax is comsolModel = setupPlots(comsolModel, selectionNames)');
-        end
-    catch exception
-        message = struct;
-        message.identifier = 'ModelRFQ:ComsolInterface:setupPlots:syntaxException';
-        message.text = 'Syntax error calling setupPlots';
-        message.priorityLevel = 6;
-        message.errorLevel = 'error';
-        message.exception = exception;
-        logMessage(message);
+    if nargin < 1 %then throw error ModelRFQ:ComsolInterface:setupPlots:insufficientInputArguments 
+        error('ModelRFQ:ComsolInterface:setupPlots:insufficientInputArguments', ...
+              'Too few input variables: syntax is comsolModel = setupPlots(comsolModel)');
     end
+    if nargin > 2 %then throw error ModelRFQ:ComsolInterface:setupPlots:excessiveInputArguments 
+        error('ModelRFQ:ComsolInterface:setupPlots:excessiveInputArguments', ...
+              'Too many input variables: syntax is comsolModel = setupPlots(comsolModel, selectionNames)');
+    end
+%    if nargout < 1 %then throw error ModelRFQ:ComsolInterface:setupPlots:insufficientOutputArguments 
+%        error('ModelRFQ:ComsolInterface:setupPlots:insufficientOutputArguments', ...
+%              'Too few output variables: syntax is comsolModel = setupPlots(comsolModel, selectionNames)');
+%    end
+    if nargout > 1 %then throw error ModelRFQ:ComsolInterface:setupPlots:excessiveOutputArguments 
+        error('ModelRFQ:ComsolInterface:setupPlots:excessiveOutputArguments', ...
+              'Too many output variables: syntax is comsolModel = setupPlots(comsolModel, selectionNames)');
+    end
+
+    if nargin < 2 || isempty(selectionNames)
+        selectionNames = struct ;
+        selectionNames.airVolumes = 'sel7' ;
+        selectionNames.beamBoxes = 'sel21' ;
+    end        
 
 %% Setup plots 
 
@@ -67,9 +87,11 @@ function comsolModel = setupPlots(comsolModel, selectionNames)
     comsolModel.result.dataset.create('dset2', 'Solution');
     comsolModel.result.dataset('dset2').selection.geom('geom1', 3);
     comsolModel.result.dataset('dset2').selection.named(selectionNames.beamBoxes);
+
     comsolModel.result.create('pg1', 3);
     comsolModel.result('pg1').set('data', 'dset1');
     comsolModel.result('pg1').feature.create('surf1', 'Surface');
+
     comsolModel.result.create('pg2', 3);
     comsolModel.result('pg2').set('data', 'dset2');
     comsolModel.result('pg2').feature.create('slc1', 'Slice');
@@ -82,8 +104,9 @@ function comsolModel = setupPlots(comsolModel, selectionNames)
     comsolModel.result('pg2').feature('arwv1').set('arrowymethod', 'coord');
     comsolModel.result('pg2').feature('arwv1').set('ycoord', 'range(-10,1,10)[mm]');
     comsolModel.result('pg2').feature('arwv1').set('znumber', '5');
+
     comsolModel.result.create('pg3', 3);
-    comsolModel.result('pg3').set('data', 'dset2');
+    comsolModel.result('pg3').set('data', 'dset1');
     comsolModel.result('pg3').feature.create('slc1', 'Slice');
     comsolModel.result('pg3').feature('slc1').set('quickxmethod', 'coord');
     comsolModel.result('pg3').feature.create('arwv1', 'ArrowVolume');
@@ -92,9 +115,10 @@ function comsolModel = setupPlots(comsolModel, selectionNames)
     comsolModel.result('pg3').feature('arwv1').set('arrowxmethod', 'coord');
     comsolModel.result('pg3').feature('arwv1').set('xcoord', '0');
     comsolModel.result('pg3').feature('arwv1').set('arrowymethod', 'coord');
-    comsolModel.result('pg3').feature('arwv1').set('ycoord', 'range(-10,1,10)[mm]');
+    comsolModel.result('pg3').feature('arwv1').set('ycoord', 'range(0,1[mm],boxWidth)');
     comsolModel.result('pg3').feature('arwv1').set('arrowzmethod', 'coord');
     comsolModel.result('pg3').feature('arwv1').set('zcoord', 'range(selectionStart,1[mm],selectionEnd)');
+
     comsolModel.result.create('pg4', 3);
     comsolModel.result('pg4').feature.create('slc1', 'Slice');
     comsolModel.result('pg4').feature('slc1').set('expr', 'es.Ez');
@@ -110,4 +134,4 @@ function comsolModel = setupPlots(comsolModel, selectionNames)
     comsolModel.result('pg4').feature('arwv1').set('ycoord', '0');
     comsolModel.result('pg4').feature('arwv1').set('znumber', '15');
 
-return
+    return

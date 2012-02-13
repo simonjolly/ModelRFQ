@@ -1,11 +1,20 @@
-function logMessage(message, inputParameters)
+function [outputParameters, recurseLevout] = logMessage(message, inputParameters, recurseLevel)
 %
-% function logMessage(message, [inputParameters])
+% function [outputParameters, recurseLevout] = logMessage(message, inputParameters, recurseLevel)
+%
+%   LOGMESSAGE - Log messages to screen, file and Twitter
+%
+%   logMessage(message)
+%   logMessage(message, inputParameters)
+%   logMessage(message, inputParameters, recurseLevel)
+%   [outputParameters] = logMessage(...)
+%   [outputParameters, recurseLevout] = logMessage(...)
 %
 %   Logs the message to screen, file and Twitter based on the message level
 %   and the verbosity settings.
 %
-%   message is a structure holding the message ID, message text, 
+%   logMessage(message) - log details from MESSAGE to screen, file and
+%   Twitter. MESSAGE is a structure holding the message ID, message text, 
 %   error level and priority level, and the exception object if applicable.
 %
 %   message.identifier should be the message identifier,
@@ -31,13 +40,29 @@ function logMessage(message, inputParameters)
 %
 %   message.exception should contain the exception object if relevant.
 %
-%   parameters should be a globally available structure defined by 
-%   getModelParameters, containing parameters.options.verbosity
-%   and parameters.files.logFileNo. If the global parameters variable is
-%   not available, the parameters structure can be sent as an input
-%   variable, inputParameters.
+%   logMessage(message, inputParameters) - also pass through the parameters
+%   structure INPUTPARAMETERS: should be a structure (normally defined by
+%   getModelParameters), containing parameters.options.verbosity and
+%   parameters.files.logFileNo. If INPUTPARAMETERS is not specified, the
+%   default parameters structure is used (for details on verbosity levels,
+%   see below):
 %
-%   The calling function should have already opened the log file for writing.
+%        parameters.files.logFileNo = fopen('ModelRFQ.log', 'a');
+%        parameters.options.verbosity.toScreen = 0;
+%        parameters.options.verbosity.toFile = 8 ;
+%        parameters.options.verbosity.toTwitter = 0 ;
+%
+%   logMessage(message, inputParameters, recurseLevel) - adds recursion
+%   checking to the recursive calls to logMessage.  If RECURSELEVEL is
+%   greater than 10, logMessage stops trying to write messages to Twitter
+%   and the log file: this prevents infinite loops if neither can be
+%   written to.
+%
+%   [outputParameters] = logMessage(...) - returns the modified PARAMETERS
+%   structure as OUTPUTPARAMETERS.
+%
+%   [outputParameters, recurseLevout] = logMessage(...) - also returns the
+%   recursion level as RECURSELEVOUT.
 %
 %   Verbosity levels
 %    0 - no output
@@ -63,11 +88,17 @@ function logMessage(message, inputParameters)
 %       Added last exception check to reduce repeated exception details in
 %       log file.
 %
+%   11-May-2011 S. Jolly
+%       Modified input syntax checking to remove global parameters
+%       reference and prevent infinite loops in self-referenced function.
+%       Also added file closure at function end to prevent multiple
+%       openings of the same log file.
+%
 %=========================================================================
 
 %% Declarations 
 
-    global parameters;
+%    global parameters;
     persistent lastException; 
     
     if ispc
@@ -76,50 +107,101 @@ function logMessage(message, inputParameters)
         newline = '\n';
     end
 
+    defTwitVerbLev = 0 ;
+    defScreenVerbLev = 10 ;
+    defFileVerbLev = 10 ;
+
 %% Check syntax 
 
-    try %to check syntax 
+    if nargin < 3 || isempty(recurseLevel)
+        recurseLevel = 0 ;
+    end
+    if nargin < 2 || isempty(inputParameters) || ~isstruct(inputParameters) %then create parameters
+        parameters = struct ;
+    else % store parameters
+        parameters = inputParameters;
+    end
+
+    try %to check syntax
         if nargin < 1 %then throw error ModelRFQ:Functions:logMessage:insufficientInputArguments 
             error('ModelRFQ:Functions:logMessage:insufficientInputArguments', 'Insufficient input arguments: correct syntax is logMessage(message)');
         end
-        if nargin > 2 %then throw error ModelRFQ:Functions:logMessage:excessiveInputArguments 
-            error('ModelRFQ:Functions:logMessage:excessiveInputArguments', 'Excessive input arguments: correct syntax is logMessage(message, [inputParameters])');
+        if nargin > 3 %then throw error ModelRFQ:Functions:logMessage:excessiveInputArguments 
+            error('ModelRFQ:Functions:logMessage:excessiveInputArguments', ...
+                'Excessive input arguments: correct syntax is logMessage(message, inputParameters, recurseLevel)');
         end
-        if nargout ~= 0 %then throw error ModelRFQ:Functions:logMessage:incorrectOutputArguments 
-            error('ModelRFQ:Functions:logMessage:incorrectOutputArguments', 'Incorrect output arguments: correct syntax is logMessage(message)');
+        if nargout > 2 %then throw error ModelRFQ:Functions:logMessage:incorrectOutputArguments 
+            error('ModelRFQ:Functions:logMessage:incorrectOutputArguments', ...
+                'Excessive output arguments: correct syntax is [outputParameters, recurseLevout] = logMessage(message)');
         end
         if ~isstruct(message) ... %then throw error ModelRFQ:Functions:logMessage:invalidMessage 
-                || ~ischar(message.identifier) || ~ischar(message.text) ...
-                || ~isnumeric(message.priorityLevel) || ~ischar(message.errorLevel) 
+                || ~isfield(message, 'identifier') || ~ischar(message.identifier) ...
+                || ~isfield(message, 'text') || ~ischar(message.text) ...
+                || ~isfield(message, 'priorityLevel') || ~isnumeric(message.priorityLevel) ...
+                || ~isfield(message, 'errorLevel') || ~ischar(message.errorLevel)
+
             warning('ModelRFQ:Functions:logMessage:invalidMessage', ...
-                    'Incorrect message structure: type ''help logMessage'' for details. Using default values.');
+                    'Incorrect message structure: type ''help logMessage'' for details. Using default values.') ;
+
             if ischar(message) %then use this for the message text 
                 messageText = message;
             else
                 messageText = '';
             end
-            message = struct;
-            message.identifier = 'ModelRFQ:Functions:logMessage:dummyIdentifier';
-            message.text = messageText;
-            message.priorityLevel = 1;
-            message.errorLevel = 'information';
+            if ~isstruct(message)
+                message = struct ;
+            end
+            if ~isfield(message, 'identifier') || ~ischar(message.identifier)
+                message.identifier = 'ModelRFQ:Functions:logMessage:dummyIdentifier' ;
+            end
+            if ~isfield(message, 'text') || ~ischar(message.text)
+                message.text = messageText ;
+            end
+            if ~isfield(message, 'priorityLevel') || ~isnumeric(message.priorityLevel)
+                message.priorityLevel = 1;
+            end
+            if ~isfield(message, 'errorLevel') || ~ischar(message.errorLevel)
+                message.errorLevel = 'information';
+            end
+
         end
-        if nargin == 2 %then store parameters 
-            parameters = inputParameters;
-        end
-        if ~isstruct(parameters) ... %then throw error ModelRFQ:Functions:logMessage:incorrectParameters
-            || ~isstruct(parameters.options.verbosity) || ~isnumeric(parameters.files.logFileNo) ...
-            || ~isnumeric(parameters.options.verbosity.toScreen) || ~isnumeric(parameters.options.verbosity.toFile) || ~isnumeric(parameters.options.verbosity.toTwitter)
+        if ~isfield(parameters, 'options') || ~isstruct(parameters.options) ... %then throw error ModelRFQ:Functions:logMessage:incorrectParameters
+                || ~isfield(parameters, 'files') || ~isstruct(parameters.files) ...
+                || ~isfield(parameters.files, 'logFileName') || ~ischar(parameters.files.logFileName) ...
+                || ~isfield(parameters.options, 'verbosity') || ~isstruct(parameters.options.verbosity) ...
+                || ~isfield(parameters.options.verbosity, 'toScreen') || ~isnumeric(parameters.options.verbosity.toScreen) ...
+                || ~isfield(parameters.options.verbosity, 'toFile') || ~isnumeric(parameters.options.verbosity.toFile) ...
+                || ~isfield(parameters.options.verbosity, 'toTwitter') || ~isnumeric(parameters.options.verbosity.toTwitter)
+
             warning('ModelRFQ:Functions:logMessage:incorrectParameters', ...
-                    'Cannot find global parameters structure. Using default parameters.');
-            parameters = struct;
-            parameters.options = struct;
-            parameters.options.verbosity = struct;
-            parameters.options.verbosity.toScreen = 5;
-            parameters.options.verbosity.toFile = 10;
-            parameters.options.verbosity.toTwitter = 3;
-            parameters.files = struct;
-            parameters.files.logFileNo = fopen('ModelRFQ.log', 'a');
+                    'Invalid parameters structure. Using default parameters.') ;
+
+            if ~isfield(parameters, 'files') || ~isstruct(parameters.files)
+                parameters.files = struct;
+            end
+            if ~isfield(parameters.files, 'logFileName') || ~ischar(parameters.files.logFileName)
+                parameters.files.logFileName = 'ModelRFQ.log' ;
+            end
+            if ~isfield(parameters, 'options') || ~isstruct(parameters.options)
+                parameters.options = struct ;
+            end
+            if ~isfield(parameters.options, 'verbosity') || ~isstruct(parameters.options.verbosity)
+                parameters.options.verbosity = struct ;
+            end
+            if ~isfield(parameters.options.verbosity, 'toScreen') || ~isnumeric(parameters.options.verbosity.toScreen)
+                parameters.options.verbosity.toScreen = defScreenVerbLev ;
+            end
+            if ~isfield(parameters.options.verbosity, 'toFile') || ~isnumeric(parameters.options.verbosity.toFile)
+                parameters.options.verbosity.toFile = defFileVerbLev ;
+            end
+            if ~isfield(parameters.options.verbosity, 'toTwitter') || ~isnumeric(parameters.options.verbosity.toTwitter)
+                parameters.options.verbosity.toTwitter = defTwitVerbLev ;
+            end
+
+        end
+        if ~isfield(parameters.files, 'logFileNo') || ~isnumeric(parameters.files.logFileNo)
+%            parameters.files.logFileNo = fopen('ModelRFQ.log', 'a') ;
+            parameters.files.logFileNo = [] ;
         end
     catch syntaxException
         syntaxMessage = struct;
@@ -128,9 +210,19 @@ function logMessage(message, inputParameters)
         syntaxMessage.priorityLevel = 1;
         syntaxMessage.errorLevel = 'error';
         syntaxMessage.exception = syntaxException;
-        logMessage(syntaxMessage);
-    end    
-    
+        parameters = struct ;
+        parameters.files = struct;
+        parameters.files.logFileNo = [] ;
+        parameters.files.logFileName = 'ModelRFQ.log' ;
+        parameters.options = struct ;
+        parameters.options.verbosity = struct ;
+        parameters.options.verbosity.toScreen = defScreenVerbLev ;
+        parameters.options.verbosity.toFile = defFileVerbLev ;
+        parameters.options.verbosity.toTwitter = defTwitVerbLev ;
+        recurseLevel = recurseLevel + 1 ;
+        [parameters, recurseLevel] = logMessage(syntaxMessage, parameters, recurseLevel) ;
+    end
+
 %% Check last exception to avoid duplication 
 
     shouldSkipExceptionDetails = false;
@@ -149,7 +241,7 @@ function logMessage(message, inputParameters)
     
 %% Write output to screen 
     
-    if parameters.options.verbosity.toScreen >= message.priorityLevel %then display the message 
+    if parameters.options.verbosity.toScreen >= message.priorityLevel && recurseLevel < 10 %then display the message 
         switch message.errorLevel
             case 'error'
                 disp(' ');
@@ -166,8 +258,11 @@ function logMessage(message, inputParameters)
 
 %% Write messages to file 
     
-    if parameters.options.verbosity.toFile >= message.priorityLevel %then write the message 
+    if parameters.options.verbosity.toFile >= message.priorityLevel && recurseLevel < 10 %then write the message 
         try %to write to file
+            if isempty(parameters.files.logFileNo) || isempty(fopen(parameters.files.logFileNo))
+                parameters.files.logFileNo = fopen(parameters.files.logFileName, 'a') ;
+            end
             if ispc
                 text = regexprep(message.text, '\\n', '\\r\\n');
                 try exceptionText = regexprep(message.exception.message, '\n', '\r\n'); catch; end %#ok - exception may not exist
@@ -218,13 +313,16 @@ function logMessage(message, inputParameters)
             fileMessage.priorityLevel = 8;
             fileMessage.errorLevel = 'warning';
             fileMessage.exception = fileException;
-            logMessage(fileMessage);
+            recurseLevel = recurseLevel + 1 ;
+            parameters.options.verbosity.toFile = 0 ;
+            [parameters, recurseLevel] = logMessage(fileMessage, parameters, recurseLevel);
         end
     end
 
 %% Send messages to Twitter 
     
-    if ~strcmpi(message.identifier, 'ModelRFQ:Functions:logMessage:twitterException') %don't loop infinitely 
+    if ~strcmpi(message.identifier, 'ModelRFQ:Functions:logMessage:twitterException') ...%don't loop infinitely
+            && parameters.options.verbosity.toTwitter >= message.priorityLevel && recurseLevel < 10 %then write the message 
         shouldTweet = false;
         switch message.errorLevel %tweet all errors, warnings under level 9, and information based on verbosity 
             case 'error'
@@ -259,10 +357,20 @@ function logMessage(message, inputParameters)
                 twitterMessage.priorityLevel = 9;
                 twitterMessage.errorLevel = 'warning';
                 twitterMessage.exception = twitterException;
-                logMessage(twitterMessage);
+                recurseLevel = recurseLevel + 1 ;
+                [parameters, recurseLevel] = logMessage(twitterMessage, parameters, recurseLevel);
             end
         end
     end
+
+%% Close log file and set up output parameters
+
+    if ~isempty(fopen(parameters.files.logFileNo))
+        fclose(parameters.files.logFileNo) ;
+    end
+
+    recurseLevout = recurseLevel ;
+    outputParameters = parameters ;
 
 %% Throw errors or show warnings 
 
@@ -287,4 +395,5 @@ function logMessage(message, inputParameters)
             end
     end
 
-return
+    return
+

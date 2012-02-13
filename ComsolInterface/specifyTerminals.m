@@ -1,12 +1,32 @@
-function comsolModel = specifyTerminals(comsolModel, selectionNames)
+function [comsolModel] = specifyTerminals(comsolModel, selectionNames)
 %
 % function comsolModel = specifyTerminals(comsolModel, selectionNames)
 %
-%   specifyTerminals defines the electrostatic terminals for the given 
-%   Comsol model.
+%   SPECIFYTERMINALS.M - define electrostatic terminals.
 %
-%   Credit for the majority of the modelling code must go to Simon Jolly of
-%   Imperial College London.
+%   specifyTerminals(comsolModel)
+%   specifyTerminals(comsolModel, selectionNames)
+%   comsolModel = specifyTerminals(...)
+%
+%   specifyTerminals sets up the electrostatic terminals for the Comsol RFQ
+%   vane tip simulation.  The vane tip voltages are set using the Comsol
+%   parameter 'vaneVoltage'.
+%
+%   specifyTerminals(comsolModel) - set electrostatic terminals for the
+%   Comsol model COMSOLMODEL.  Default selection names are used for the
+%   horizontal vane/terminal ('sel5'), the vertical vane/terminal ('sel6')
+%   and the air domains ('sel7').
+%
+%   specifyTerminals(comsolModel, selectionNames) - also specify the names
+%   of the selections.  SELECTIONNAMES is a Matlab structure containing
+%   strings of the names of various selections for the Comsol model:
+%   selectionNames.horizontalTerminals contains the name of the horizontal
+%   vane/terminal selection, selectionNames.verticalTerminals contains the
+%   vertical vane/terminal selection and selectionNames.airVolumes the air
+%   domain selection.
+%
+%   comsolModel = specifyTerminals(...) - output the modified Comsol model
+%   as the Matlab object COMSOLMODEL.
 %
 %   See also setupModel, buildComsolModel, modelRfq, getModelParameters,
 %   logMessage.
@@ -25,6 +45,10 @@ function comsolModel = specifyTerminals(comsolModel, selectionNames)
 %       Built function specifyTerminals from mphrfqsetup and subroutines. 
 %       Included in ModelRFQ distribution.
 %
+%   27-May-2011 S. Jolly
+%       Removed error checking (contained in wrapper functions) and
+%       streamlined input variable parsing.
+%
 %======================================================================
 
 %% Declarations 
@@ -34,32 +58,29 @@ function comsolModel = specifyTerminals(comsolModel, selectionNames)
     
 %% Check syntax 
 
-    try %to test syntax 
-        if nargin < 2 %then throw error ModelRFQ:ComsolInterface:specifyTerminals:insufficientInputArguments 
-            error('ModelRFQ:ComsolInterface:specifyTerminals:insufficientInputArguments', ...
-                  'Too few input variables: syntax is comsolModel = specifyTerminals(comsolModel, selectionNames)');
-        end
-        if nargin > 2 %then throw error ModelRFQ:ComsolInterface:specifyTerminals:excessiveInputArguments 
-            error('ModelRFQ:ComsolInterface:specifyTerminals:excessiveInputArguments', ...
-                  'Too many input variables: syntax is comsolModel = specifyTerminals(comsolModel, selectionNames)');
-        end
-        if nargout < 1 %then throw error ModelRFQ:ComsolInterface:specifyTerminals:insufficientOutputArguments 
-            error('ModelRFQ:ComsolInterface:specifyTerminals:insufficientOutputArguments', ...
-                  'Too few output variables: syntax is comsolModel = specifyTerminals(comsolModel, selectionNames)');
-        end
-        if nargout > 1 %then throw error ModelRFQ:ComsolInterface:specifyTerminals:excessiveOutputArguments 
-            error('ModelRFQ:ComsolInterface:specifyTerminals:excessiveOutputArguments', ...
-                  'Too many output variables: syntax is comsolModel = specifyTerminals(comsolModel, selectionNames)');
-        end
-    catch exception
-        message = struct;
-        message.identifier = 'ModelRFQ:ComsolInterface:specifyTerminals:syntaxException';
-        message.text = 'Syntax error calling specifyTerminals';
-        message.priorityLevel = 6;
-        message.errorLevel = 'error';
-        message.exception = exception;
-        logMessage(message);
+    if nargin < 1 %then throw error ModelRFQ:ComsolInterface:specifyTerminals:insufficientInputArguments 
+        error('ModelRFQ:ComsolInterface:specifyTerminals:insufficientInputArguments', ...
+              'Too few input variables: syntax is comsolModel = specifyTerminals(comsolModel)');
     end
+    if nargin > 2 %then throw error ModelRFQ:ComsolInterface:specifyTerminals:excessiveInputArguments 
+        error('ModelRFQ:ComsolInterface:specifyTerminals:excessiveInputArguments', ...
+              'Too many input variables: syntax is comsolModel = specifyTerminals(comsolModel, selectionNames)');
+    end
+%    if nargout < 1 %then throw error ModelRFQ:ComsolInterface:specifyTerminals:insufficientOutputArguments 
+%        error('ModelRFQ:ComsolInterface:specifyTerminals:insufficientOutputArguments', ...
+%              'Too few output variables: syntax is comsolModel = specifyTerminals(comsolModel, selectionNames)');
+%    end
+    if nargout > 1 %then throw error ModelRFQ:ComsolInterface:specifyTerminals:excessiveOutputArguments 
+        error('ModelRFQ:ComsolInterface:specifyTerminals:excessiveOutputArguments', ...
+              'Too many output variables: syntax is comsolModel = specifyTerminals(comsolModel, selectionNames)');
+    end
+
+    if nargin < 2 || isempty(selectionNames)
+        selectionNames = struct ;
+        selectionNames.horizontalTerminals = 'sel5' ;
+        selectionNames.verticalTerminals = 'sel6' ;
+        selectionNames.airVolumes = 'sel7' ;
+    end        
 
 %% Specify electrostatic terminals 
 
@@ -77,4 +98,11 @@ function comsolModel = specifyTerminals(comsolModel, selectionNames)
     comsolModel.physics('es').feature('term2').name('Negative Terminal');
     comsolModel.physics('es').selection.named(selectionNames.airVolumes);
 
-return
+%% Specify end flange grounded surface
+
+    comsolModel.physics('es').feature.create('gnd1', 'Ground', 2);
+    comsolModel.physics('es').feature('gnd1').name('End Flange Surface Ground');
+    comsolModel.physics('es').feature('gnd1').selection.named(selectionNames.endFlangeGrounded);
+    comsolModel.physics('es').feature('gnd1').active(false);
+
+    return

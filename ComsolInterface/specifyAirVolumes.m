@@ -1,16 +1,33 @@
-function comsolModel = specifyAirVolumes(comsolModel, selectionNames)
+function [comsolModel] = specifyAirVolumes(comsolModel, selectionNames)
 %
 % function comsolModel = specifyAirVolumes(comsolModel, selectionNames)
 %
-%   specifyAirVolumes defines the material values for the air domains in 
-%   the given Comsol model.
+%   SPECIFYAIRVOLUMES.M - define material properties for air domains.
 %
-%   Credit for the majority of the modelling code must go to Simon Jolly of
-%   Imperial College London.
+%   specifyAirVolumes(comsolModel)
+%   specifyAirVolumes(comsolModel, selectionNames)
+%   comsolModel = specifyAirVolumes(...)
+%
+%   specifyAirVolumes defines the material values for the air domains in 
+%   the given Comsol model.  These values are taken straight from Comsol
+%   and are used to specify the electrostatic properties of the domains
+%   that represent air.
+%
+%   specifyAirVolumes(comsolModel) - set air domain properties for the
+%   Comsol model COMSOLMODEL.  The name of the selection of domains
+%   containing all the air domains is assumed to be 'sel7'.
+%
+%   specifyAirVolumes(comsolModel, selectionNames) - also specify name of
+%   the air domain selection.  SELECTIONNAMES is a Matlab structure
+%   containing strings of the names of various selections for the Comsol
+%   model: selectionNames.airVolumes contains the name of the air domain
+%   selection.
+%
+%   comsolModel = specifyAirVolumes(...) - output the modified Comsol model
+%   as the Matlab object COMSOLMODEL.
 %
 %   See also setupModel, buildComsolModel, modelRfq, getModelParameters,
 %   logMessage.
-
 
 % File released under the GNU public license.
 % Originally written by Matt Easton. Based on code by Simon Jolly.
@@ -25,6 +42,10 @@ function comsolModel = specifyAirVolumes(comsolModel, selectionNames)
 %       Built function specifyAirVolumes from mphrfqsetup and subroutines. 
 %       Included in ModelRFQ distribution.
 %
+%   27-May-2011 S. Jolly
+%       Removed error checking (contained in wrapper functions) and
+%       streamlined input variable parsing.
+%
 %======================================================================
 
 %% Declarations 
@@ -34,31 +55,26 @@ function comsolModel = specifyAirVolumes(comsolModel, selectionNames)
     
 %% Check syntax 
 
-    try %to test syntax 
-        if nargin < 2 %then throw error ModelRFQ:ComsolInterface:specifyAirVolumes:insufficientInputArguments 
-            error('ModelRFQ:ComsolInterface:specifyAirVolumes:insufficientInputArguments', ...
-                  'Too few input variables: syntax is comsolModel = specifyAirVolumes(comsolModel, selectionNames)');
-        end
-        if nargin > 2 %then throw error ModelRFQ:ComsolInterface:specifyAirVolumes:excessiveInputArguments 
-            error('ModelRFQ:ComsolInterface:specifyAirVolumes:excessiveInputArguments', ...
-                  'Too many input variables: syntax is comsolModel = specifyAirVolumes(comsolModel, selectionNames)');
-        end
-        if nargout < 1 %then throw error ModelRFQ:ComsolInterface:specifyAirVolumes:insufficientOutputArguments 
-            error('ModelRFQ:ComsolInterface:specifyAirVolumes:insufficientOutputArguments', ...
-                  'Too few output variables: syntax is comsolModel = specifyAirVolumes(comsolModel, selectionNames)');
-        end
-        if nargout > 1 %then throw error ModelRFQ:ComsolInterface:specifyAirVolumes:excessiveOutputArguments 
-            error('ModelRFQ:ComsolInterface:specifyAirVolumes:excessiveOutputArguments', ...
-                  'Too many output variables: syntax is comsolModel = specifyAirVolumes(comsolModel, selectionNames)');
-        end
-    catch exception
-        message = struct;
-        message.identifier = 'ModelRFQ:ComsolInterface:specifyAirVolumes:syntaxException';
-        message.text = 'Syntax error calling specifyAirVolumes';
-        message.priorityLevel = 6;
-        message.errorLevel = 'error';
-        message.exception = exception;
-        logMessage(message);
+    if nargin < 1 %then throw error ModelRFQ:ComsolInterface:specifyAirVolumes:insufficientInputArguments 
+        error('ModelRFQ:ComsolInterface:specifyAirVolumes:insufficientInputArguments', ...
+              'Too few input variables: syntax is comsolModel = specifyAirVolumes(comsolModel)');
+    end
+    if nargin > 2 %then throw error ModelRFQ:ComsolInterface:specifyAirVolumes:excessiveInputArguments 
+        error('ModelRFQ:ComsolInterface:specifyAirVolumes:excessiveInputArguments', ...
+              'Too many input variables: syntax is comsolModel = specifyAirVolumes(comsolModel, selectionNames)');
+    end
+%    if nargout < 1 %then throw error ModelRFQ:ComsolInterface:specifyAirVolumes:insufficientOutputArguments 
+%        error('ModelRFQ:ComsolInterface:specifyAirVolumes:insufficientOutputArguments', ...
+%              'Too few output variables: syntax is comsolModel = specifyAirVolumes(comsolModel, selectionNames)');
+%    end
+    if nargout > 1 %then throw error ModelRFQ:ComsolInterface:specifyAirVolumes:excessiveOutputArguments 
+        error('ModelRFQ:ComsolInterface:specifyAirVolumes:excessiveOutputArguments', ...
+              'Too many output variables: syntax is comsolModel = specifyAirVolumes(comsolModel, selectionNames)');
+    end
+
+    if nargin < 2 || isempty(selectionNames)
+        selectionNames = struct ;
+        selectionNames.airVolumes = 'sel7' ;
     end
 
 %% Specify air domains 
@@ -105,4 +121,4 @@ function comsolModel = specifyAirVolumes(comsolModel, selectionNames)
     comsolModel.material('mat1').materialModel('def').addInput('pressure');
     comsolModel.material('mat1').selection.named(selectionNames.airVolumes);
 
-return
+    return
