@@ -37,6 +37,10 @@ function [comsolModel, selectionNames, vaneBoundBoxes, modelBoundBox, outputPara
 %   21-Nov-2011 S. Jolly
 %       Added fourQuad variable to create 4-quadrant model.
 %
+%   21-Dec-2011 S. Jolly
+%       Changed selection setting to use setSelections to help set
+%       selections for asymmetric 4-quadrant models.
+%
 %======================================================================
 
 %% Declarations 
@@ -395,122 +399,60 @@ function [comsolModel, selectionNames, vaneBoundBoxes, modelBoundBox, outputPara
         clear message;
 
         comsolModel.selection.create('sel1');
-        if fourQuad
-            comsolModel.selection('sel1').set([2 5 6 7 8 9 15 16]);
-        else
-            comsolModel.selection('sel1').set([5 6 8 9]);
-        end
         comsolModel.selection('sel1').name('All Vanes');
         selectionNames.allVanes = 'sel1';
 
         comsolModel.selection.create('sel2');
-        if fourQuad
-            comsolModel.selection('sel2').set([2 5 15 16]);
-        else
-            comsolModel.selection('sel2').set([8 9]);
-        end
         comsolModel.selection('sel2').name('Horizontal Vanes');
         selectionNames.horizontalVanes = 'sel2';
 
         comsolModel.selection.create('sel3');
-        if fourQuad
-            comsolModel.selection('sel3').set([6 7 8 9]);
-        else
-            comsolModel.selection('sel3').set([5 6]);
-        end
         comsolModel.selection('sel3').name('Vertical Vanes');
         selectionNames.verticalVanes = 'sel3';
 
         comsolModel.selection.create('sel4');
         comsolModel.selection('sel4').geom('geom1', 3, 2, {'exterior'});
-        if fourQuad
-            comsolModel.selection('sel4').set([2 5 6 7 8 9 15 16]);
-        else
-            comsolModel.selection('sel4').set([5 6 8 9]);
-        end
         comsolModel.selection('sel4').name('All Terminals');
         selectionNames.allTerminals = 'sel4';
 
         comsolModel.selection.create('sel5');
         comsolModel.selection('sel5').geom('geom1', 3, 2, {'exterior'});
-        if fourQuad
-            comsolModel.selection('sel5').set([2 5 15 16]);
-        else
-            comsolModel.selection('sel5').set([8 9]);
-        end
         comsolModel.selection('sel5').name('Horizontal Terminals');
         selectionNames.horizontalTerminals = 'sel5';
 
         comsolModel.selection.create('sel6');
         comsolModel.selection('sel6').geom('geom1', 3, 2, {'exterior'});
-        if fourQuad
-            comsolModel.selection('sel6').set([6 7 8 9]);
-        else
-            comsolModel.selection('sel6').set([5 6]);
-        end
         comsolModel.selection('sel6').name('Vertical Terminals');
         selectionNames.verticalTerminals = 'sel6';
 
         comsolModel.selection.create('sel7');
-        if fourQuad
-            comsolModel.selection('sel7').set([1 3 4 10 11 12 13 14]);
-        else
-            comsolModel.selection('sel7').set([1 2 3 4 7]);
-        end
         comsolModel.selection('sel7').name('Air Volumes');
         selectionNames.airVolumes = 'sel7';
 
         comsolModel.selection.create('sel8');
-        if fourQuad
-            comsolModel.selection('sel8').set([10 11 12]);
-        else
-            comsolModel.selection('sel8').set([1 2 3]);
-        end
         comsolModel.selection('sel8').name('Inner Beam Box');
         selectionNames.innerBeamBox = 'sel8';
 
         comsolModel.selection.create('sel9');
-        if fourQuad
-            comsolModel.selection('sel9').set(10);
-        else
-            comsolModel.selection('sel9').set(1);
-        end
         comsolModel.selection('sel9').name('Inner Beam Box (Front)');
         selectionNames.innerBeamBoxFront = 'sel9';
 
         comsolModel.selection.create('sel10');
-        if fourQuad
-            comsolModel.selection('sel10').set(11);
-        else
-            comsolModel.selection('sel10').set(2);
-        end
         comsolModel.selection('sel10').name('Inner Beam Box (Mid)');
         selectionNames.innerBeamBoxMid = 'sel10';
 
         comsolModel.selection.create('sel11');
-        if fourQuad
-            comsolModel.selection('sel11').set(12);
-        else
-            comsolModel.selection('sel11').set(3);
-        end
         comsolModel.selection('sel11').name('Inner Beam Box (Rear)');
         selectionNames.innerBeamBoxRear = 'sel11';
 
         comsolModel.selection.create('sel12');
         comsolModel.selection('sel12').geom('geom1', 3, 2, {'exterior'});
-        if fourQuad
-            comsolModel.selection('sel12').set([10 11 12]);
-        else
-            comsolModel.selection('sel12').set([1 2 3]);
-        end
         comsolModel.selection('sel12').name('Inner Beam Box (Boundaries)');
         selectionNames.innerBeamBoxBoundaries = 'sel12';
 
         comsolModel.selection.create('sel13');
         comsolModel.selection('sel13').geom(2);
-        if fourQuad
-            comsolModel.selection('sel13').set(46);
-        else
+        if ~fourQuad
             comsolModel.selection('sel13').set(3);
         end
         comsolModel.selection('sel13').name('Inner Beam Box (Front Face)');
@@ -518,44 +460,29 @@ function [comsolModel, selectionNames, vaneBoundBoxes, modelBoundBox, outputPara
 
         comsolModel.selection.create('sel14');
         comsolModel.selection('sel14').geom(2);
-        if fourQuad
-            comsolModel.selection('sel14').set(53);
-        else
+        if ~fourQuad
             comsolModel.selection('sel14').set(10);
         end
         comsolModel.selection('sel14').name('Inner Beam Box (Rear Face)');
         selectionNames.innerBeamBoxRearFace = 'sel14';
 
         comsolModel.selection.create('sel15');
-        comsolModel.selection('sel15').set(4);
         comsolModel.selection('sel15').name('Outer Beam Box');
         selectionNames.outerBeamBox = 'sel15';
 
         comsolModel.selection.create('sel16');
-        if fourQuad
-            comsolModel.selection('sel16').set([1 3 13 14]);
-        else
-            comsolModel.selection('sel16').set(7);
-        end
         comsolModel.selection('sel16').name('Air Bag');
         selectionNames.airBag = 'sel16';
 
         comsolModel.selection.create('sel17');
         comsolModel.selection('sel17').geom('geom1', 3, 2, {'exterior'});
-        if fourQuad
-            comsolModel.selection('sel17').set([1 3 13 14]);
-        else
-            comsolModel.selection('sel17').set(7);
-        end
         comsolModel.selection('sel17').name('Air Bag (Boundaries)');
         selectionNames.airBagBoundaries = 'sel17';
 
         comsolModel.selection.create('sel18');
         comsolModel.selection('sel18').geom(2);
         comsolModel.selection('sel18').geom('geom1', 2, 1, {'exterior'});
-        if fourQuad
-            comsolModel.selection('sel18').set(46);
-        else
+        if ~fourQuad
             comsolModel.selection('sel18').set(3);
         end
         comsolModel.selection('sel18').name('Inner Beam Box (Front Edges)');
@@ -563,9 +490,7 @@ function [comsolModel, selectionNames, vaneBoundBoxes, modelBoundBox, outputPara
 
         comsolModel.selection.create('sel19');
         comsolModel.selection('sel19').geom(2);
-        if fourQuad
-            comsolModel.selection('sel19').set([46 49 52]);
-        else
+        if ~fourQuad
             comsolModel.selection('sel19').set([3 6 9]);
         end
         comsolModel.selection('sel19').name('Inner Beam Box (Leading Faces)');
@@ -574,20 +499,13 @@ function [comsolModel, selectionNames, vaneBoundBoxes, modelBoundBox, outputPara
         comsolModel.selection.create('sel20');
         comsolModel.selection('sel20').geom(2);
         comsolModel.selection('sel20').geom('geom1', 2, 1, {'exterior'});
-        if fourQuad
-            comsolModel.selection('sel20').set([46 49 52]);
-        else
+        if ~fourQuad
             comsolModel.selection('sel20').set([3 6 9]);
         end
         comsolModel.selection('sel20').name('Inner Beam Box (Leading Edges)');
         selectionNames.innerBeamBoxLeadingEdges = 'sel20';
 
         comsolModel.selection.create('sel21');
-        if fourQuad
-            comsolModel.selection('sel21').set([4 10 11 12]);
-        else
-            comsolModel.selection('sel21').set([1 2 3 4]);
-        end
         comsolModel.selection('sel21').name('Beam Boxes');
         selectionNames.beamBoxes = 'sel21';
 
@@ -596,6 +514,8 @@ function [comsolModel, selectionNames, vaneBoundBoxes, modelBoundBox, outputPara
         comsolModel.selection('sel22').set([]);
         comsolModel.selection('sel22').name('End Flange Ground Surface');
         selectionNames.endFlangeGrounded = 'sel22';
+
+        comsolModel = setSelections(comsolModel, selectionNames, [], parameters) ;
 
     catch exception
         errorMessage = struct;

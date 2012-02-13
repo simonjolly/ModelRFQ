@@ -29,6 +29,10 @@ function [comsolModel, parameters, selectionNames, vaneBoundBoxes, modelBoundBox
 %   29-Nov-2011 S. Jolly
 %       Added code to deal with 4-quadrant models.
 %
+%   23-Dec-2011 S. Jolly
+%       Added capability to specify boxWidth as an input variable to
+%       getModelParameters.
+%
 %=========================================================================
 
 %% Declarations 
@@ -174,6 +178,9 @@ function [comsolModel, parameters, selectionNames, vaneBoundBoxes, modelBoundBox
         initialCellNo = 4;
         [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth] ...
             = getCellParameters(lengthData, initialCellNo, cadOffset, verticalCellHeight, rho, 1) ;
+        if isfield(parameters, 'vane') && isfield(parameters.vane, 'boxWidth') && ~isempty(parameters.vane.boxWidth)
+            boxWidth = parameters.vane.boxWidth ;
+        end
         [comsolModel, selectionNames, vaneBoundBoxes, modelBoundBox, parameters] ...
             = setupModel(parameters.files.comsolSourceFolder, parameters.files.comsolModel, parameters.files.cadFile, ...
                          r0, rho, vaneVoltage, initialCellNo, nCells, cellStart, cellEnd, selectionStart, selectionEnd, ...

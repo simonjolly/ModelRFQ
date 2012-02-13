@@ -290,7 +290,7 @@ function [comsolModel, outputParameters] = buildCell(comsolModel, cellNo, select
         message.priorityLevel = 8;
         message.errorLevel = 'information';
         logMessage(message, parameters) ;
-        clear message;                
+        clear message;
         comsolModel.geom('geom1').runAll;
         comsolModel.geom('geom1').run;
     catch exception

@@ -1,8 +1,8 @@
 function parameters = getModelParameters(rfqType, cadFile, modsFile, comsModFolder, comsModel, fileVerbLev, ...
-    screenVerbLev, twitVerbLev, rfqFMapFile, rfqFMatFile, gptInFile, gptPartFile, logFileName, fourQuad)
+    screenVerbLev, twitVerbLev, rfqFMapFile, rfqFMatFile, gptInFile, gptPartFile, logFileName, fourQuad, boxWidth)
 %
 % function parameters = getModelParameters(rfqType, cadFile, modsFile, comsModFolder, comsModel, fileVerbLev, screenVerbLev, ...
-%                                       twitVerbLev, rfqFMapFile, rfqFMatFile, gptInFile, gptPartFile, logFileName, fourQuad)
+%                                       twitVerbLev, rfqFMapFile, rfqFMatFile, gptInFile, gptPartFile, logFileName, fourQuad, boxWidth)
 %
 %   GETMODELPARAMETERS.M - set various parameters for the Comsol and beam
 %   dynamics RFQ model.
@@ -42,6 +42,7 @@ function parameters = getModelParameters(rfqType, cadFile, modsFile, comsModFold
 %       gptPartFile = 'RFQParticles.gdf' - GDF data file containing input particle distribution
 %       logFileName = 'ModelRFQ.log' - log filename
 %       fourQuad = false - set to true to build a 4-quadrant RFQ model
+%       boxWidth = 15e-3 - use to adjust the size of the cutout volume of the model
 %
 %   It is not necessary to specify any of these parameters, so leaving a
 %   certain variable as an empty matrix eg. cadFile = [], uses the default
@@ -67,15 +68,18 @@ function parameters = getModelParameters(rfqType, cadFile, modsFile, comsModFold
 %   25-May-2011 S. Jolly
 %       Added input variables to specify multiple options.
 %
+%   23-Dec-2011 S. Jolly
+%       Added "fourQuad" and "boxWidth" input options.
+%
 %=========================================================================
 
 %% Check input arguments
 
-    if nargin > 14 %then throw error ModelRFQ:getModelParameters:incorrectInputArguments 
+    if nargin > 15 %then throw error ModelRFQ:getModelParameters:incorrectInputArguments 
         error('ModelRFQ:getModelParameters:excessiveInputArguments', ...
               ['Too many input variables: syntax is parameters = getModelParameters(rfqType, ' ...
               'cadFile, modsFile, comsModFolder, comsModel, twitVerbLev, fileVerbLev, screenVerbLev, ' ...
-              'rfqFMapFile, rfqFMatFile, gptInFile, gptPartFile, logFileName, fourQuad)']) ;
+              'rfqFMapFile, rfqFMatFile, gptInFile, gptPartFile, logFileName, fourQuad, boxWidth)']) ;
     end
     if nargout > 1 %then throw error ModelRFQ:getModelParameters:incorrectoutputArguments
         error('ModelRFQ:getModelParameters:excessiveOutputArguments', ...
@@ -443,7 +447,13 @@ function parameters = getModelParameters(rfqType, cadFile, modsFile, comsModFold
     parameters.vane.nExtraCells = 1;                    % how many cells to include either side of the cell being solved
     parameters.vane.shouldSaveSeparateCells = false;    % build and save cells separately for troubleshooting?
     parameters.vane.fourQuad = fourQuad ;               % build a 4-quadrant model?
-    
+
+    if nargin < 15 || isempty(boxWidth)
+        parameters.vane.boxWidth = [] ;
+    else
+        parameters.vane.boxWidth = boxWidth ;
+    end
+
 %% Selection names 
 
     parameters.defaultSelectionNames = struct;

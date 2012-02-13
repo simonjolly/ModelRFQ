@@ -78,6 +78,11 @@ function comsolModel = setSelections(comsolModel, selectionNames, endFlangeThick
 %       Comsol Model itself rather than passing them as input variables and
 %       adding help documentation.
 %
+%   22-Dec-2011 S. Jolly
+%       Added capability to set selections for 4-quadrant models.  Wrapped
+%       end flange electrostatic selection in try/catch block in case its
+%       called during model setup when electrostatics doesn't exist.
+%
 %=======================================================================
 
 %% Declarations 
@@ -677,13 +682,6 @@ function comsolModel = setSelections(comsolModel, selectionNames, endFlangeThick
             end
         end
 
-        if efgood
-            comsolModel.selection(selectionNames.endFlangeGrounded).set(endFlangeDomainNo);
-            comsolModel.physics('es').feature('gnd1').active(true) ;
-        else
-            comsolModel.selection(selectionNames.endFlangeGrounded).set([]);
-            comsolModel.physics('es').feature('gnd1').active(false) ;
-        end
     catch exception
         message = struct;
         message.identifier = 'ModelRFQ:ComsolInterface:setSelections:setSelectionException';
@@ -694,4 +692,22 @@ function comsolModel = setSelections(comsolModel, selectionNames, endFlangeThick
         logMessage(message, parameters) ;
     end
 
+    try
+        if efgood
+            comsolModel.selection(selectionNames.endFlangeGrounded).set(endFlangeDomainNo);
+            comsolModel.physics('es').feature('gnd1').active(true) ;
+        else
+            comsolModel.selection(selectionNames.endFlangeGrounded).set([]);
+            comsolModel.physics('es').feature('gnd1').active(false) ;
+        end
+    catch exception
+        message = struct;
+        message.identifier = 'ModelRFQ:ComsolInterface:setSelections:setEndFlangeSelectionException';
+        message.text = 'Could not set selection for end flange';
+        message.priorityLevel = 5 ;
+        message.errorLevel = 'warning';
+        message.exception = exception;
+        logMessage(message, parameters) ;
+    end
+        
     return
