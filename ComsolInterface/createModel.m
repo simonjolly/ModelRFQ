@@ -145,7 +145,11 @@ function [comsolModel, parameters, selectionNames, vaneBoundBoxes, modelBoundBox
         try %to notify start 
             message = struct;
             message.identifier = 'ModelRFQ:ComsolInterface:createModel:loadComsolModel:start';
-            message.text = ' - Creating Comsol model...';
+            if fourQuad
+                message.text = ' - Creating 4-quadrant Comsol model...';
+            else
+                message.text = ' - Creating Comsol model...';
+            end
             message.priorityLevel = 3;
             message.errorLevel = 'information';
             logMessage(message, parameters) ;
