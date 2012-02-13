@@ -1,9 +1,9 @@
 function [comsolModel, parameters, selectionNames, vaneBoundBoxes, modelBoundBox, nCells, ...
-    lengthData, rho, r0, vaneVoltage, cadOffset, verticalCellHeight, nBeamBoxCells, beamBoxWidth] ...
+    lengthData, rho, r0, vaneVoltage, cadOffset, verticalCellHeight, nBeamBoxCells, beamBoxWidth, boxWidthMod] ...
      = createModel(varargin)
 %
 % function [comsolModel, parameters, selectionNames, vaneBoundBoxes, modelBoundBox, nCells,
-%    lengthData, rho, r0, vaneVoltage, cadOffset, verticalCellHeight, nBeamBoxCells, beamBoxWidth]
+%    lengthData, rho, r0, vaneVoltage, cadOffset, verticalCellHeight, nBeamBoxCells, beamBoxWidth, boxWidthMod]
 %       = createModel(parameters)
 %
 %   createModel runs the steps needed to model an RFQ in Comsol and
@@ -48,6 +48,12 @@ function [comsolModel, parameters, selectionNames, vaneBoundBoxes, modelBoundBox
         parameters = getModelParameters(varargin{:}) ;
     end
 
+    if isfield(parameters, 'vane') && isfield(parameters.vane, 'boxWidthMod') && ~isempty(parameters.vane.boxWidthMod)
+        boxWidthMod = parameters.vane.boxWidthMod ;
+    else
+        boxWidthMod = [] ;
+    end
+    
     if isfield(parameters, 'vane') && isfield(parameters.vane, 'fourQuad')
         fourQuad = parameters.vane.fourQuad ;
     else
@@ -59,12 +65,12 @@ function [comsolModel, parameters, selectionNames, vaneBoundBoxes, modelBoundBox
 %            error('ModelRFQ:ComsolInterface:createModel:incorrectInputArguments', ...
 %                'Incorrect input arguments: correct syntax is createModel()');
 %        end
-        if nargout > 14 %then throw error ModelRFQ:ComsolInterface:createModel:incorrectOutputArguments 
+        if nargout > 15 %then throw error ModelRFQ:ComsolInterface:createModel:incorrectOutputArguments 
             error('ModelRFQ:ComsolInterface:createModel:excessiveOutputArguments', ...
                 ['Too many output variables: correct syntax is ' ...
                 '[comsolModel, parameters, selectionNames, vaneBoundBoxes, modelBoundBox, nCells, ' ...
                 'lengthData, rho, r0, vaneVoltage, cadOffset, verticalCellHeight, nBeamBoxCells, ' ...
-                'beamBoxWidth] = createModel(...)']) ;
+                'beamBoxWidth, boxWidthMod] = createModel(...)']) ;
         end
         if ~ispc
             error('ModelRFQ:ComsolInterface:createModel:unPC', ...
@@ -109,7 +115,7 @@ function [comsolModel, parameters, selectionNames, vaneBoundBoxes, modelBoundBox
             parameters = logMessage(errorMessage, parameters) ;
         end
         [nCells, lengthData, rho, r0, vaneVoltage, cadOffset, verticalCellHeight, nBeamBoxCells, beamBoxWidth] ...
-           = getModulationParameters(parameters.files.modulationsFile) ;
+           = getModulationParameters(parameters.files.modulationsFile, boxWidthMod) ;
         if fourQuad
             nBeamBoxCells = 2*nBeamBoxCells ;
         end
@@ -177,10 +183,7 @@ function [comsolModel, parameters, selectionNames, vaneBoundBoxes, modelBoundBox
         end
         initialCellNo = 4;
         [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth] ...
-            = getCellParameters(lengthData, initialCellNo, cadOffset, verticalCellHeight, rho, 1) ;
-        if isfield(parameters, 'vane') && isfield(parameters.vane, 'boxWidth') && ~isempty(parameters.vane.boxWidth)
-            boxWidth = parameters.vane.boxWidth ;
-        end
+            = getCellParameters(lengthData, initialCellNo, cadOffset, verticalCellHeight, rho, 1, [], [], boxWidthMod) ;
         [comsolModel, selectionNames, vaneBoundBoxes, modelBoundBox, parameters] ...
             = setupModel(parameters.files.comsolSourceFolder, parameters.files.comsolModel, parameters.files.cadFile, ...
                          r0, rho, vaneVoltage, initialCellNo, nCells, cellStart, cellEnd, selectionStart, selectionEnd, ...

@@ -1,8 +1,8 @@
 function [nCells, lengthData, rho, r0, vaneVoltage, cadOffset, verticalCellHeight, nBeamBoxCells, beamBoxWidth, aData, maData, zData] ...
-           = getModulationParameters(modulationsFile)
+           = getModulationParameters(modulationsFile, boxWidthMod)
 %
 % function [nCells, lengthData, rho, r0, vaneVoltage, cadOffset, verticalCellHeight, nBeamBoxCells, beamBoxWidth, aData, maData, zData] ...
-%            = getModulationParameters(modulationsFile)
+%            = getModulationParameters(modulationsFile, boxWidthMod)
 %
 %   getModulationParameters returns the modulation parameters required to
 %   build and solve the Comsol model for each cell.
@@ -26,6 +26,9 @@ function [nCells, lengthData, rho, r0, vaneVoltage, cadOffset, verticalCellHeigh
 %   30-May-2011 S. Jolly
 %       Added improved help details.
 %
+%   09-Jan-2012 S. Jolly
+%       Added boxWidthMod input parameter.
+%
 %======================================================================
 
 %% Check syntax 
@@ -34,14 +37,17 @@ function [nCells, lengthData, rho, r0, vaneVoltage, cadOffset, verticalCellHeigh
         error('ModelRFQ:ComsolInterface:getModulationParameters:insufficientInputArguments', ...
               'Too few input variables: syntax is getModulationParameters(modulationsFile)');
     end
-    if nargin > 1 %then throw error ModelRFQ:ComsolInterface:getModulationParameters:excessiveInputArguments 
+    if nargin > 2 %then throw error ModelRFQ:ComsolInterface:getModulationParameters:excessiveInputArguments 
         error('ModelRFQ:ComsolInterface:getModulationParameters:excessiveInputArguments', ...
-              'Too many input variables: syntax is getModulationParameters(modulationsFile)');
+              'Too many input variables: syntax is getModulationParameters(modulationsFile, boxWidthMod)');
     end
     if nargout > 12 %then throw error ModelRFQ:ComsolInterface:getModulationParameters:excessiveOutputArguments 
         error('ModelRFQ:ComsolInterface:getModulationParameters:excessiveOutputArguments', ...
               ['Too many output variables: syntax is [nCells, lengthData, rho, r0, vaneVoltage, cadOffset, verticalCellHeight, ', ...
               'nBeamBoxCells, beamBoxWidth, aData, maData, zData] = getModulationParameters(...)']);
+    end
+    if nargin < 2 || isempty(boxWidthMod)
+        boxWidthMod = 0 ;
     end
 
 %% Get parameters 
@@ -60,8 +66,8 @@ function [nCells, lengthData, rho, r0, vaneVoltage, cadOffset, verticalCellHeigh
     matchingSectionLength = lengthData(1);
     cadOffset = -matchingSectionLength;
     verticalCellHeight = 15e-3;
-    nBeamBoxCells = floor(min(aData).*4e3);% - 2;
-    beamBoxWidth = nBeamBoxCells/4e3;
+    nBeamBoxCells = floor( (min(aData) - abs(boxWidthMod)).*4e3 ) - 2 ;
+    beamBoxWidth = nBeamBoxCells/4e3 ;
     clear numericData ;
 
     return

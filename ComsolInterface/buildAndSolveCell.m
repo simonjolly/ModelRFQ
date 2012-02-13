@@ -1,9 +1,9 @@
 function [comsolModel, cellfieldmap, outputParameters] = buildAndSolveCell(comsolModel, cellList, selectionNames, lengthData, nCells, ...
                                 verticalCellHeight, rho, nBeamBoxCells, nExtraCells, cadOffset, vaneModelStartPos, vaneModelEndPos, ...
-                                endFlangeThickness, xGridVals, yGridVals, zGridSteps, inputParameters)
+                                endFlangeThickness, boxWidthMod, xGridVals, yGridVals, zGridSteps, inputParameters)
 % function [comsolModel, cellfieldmap, outputParameters] = buildAndSolveCell(comsolModel, cellList, selectionNames, lengthData, nCells, ...
 %                                  verticalCellHeight, rho, nBeamBoxCells, nExtraCells, cadOffset, vaneModelStartPos, vaneModelEndPos, ...
-%                                  endFlangeThickness, xGridVals, yGridVals, zGridSteps, inputParameters)
+%                                  endFlangeThickness, boxWidthMod, xGridVals, yGridVals, zGridSteps, inputParameters)
 %
 %   BUILDANDSOLVECELL.M - Build and solve electrostatic RFQ Cell Comsol Model
 %
@@ -25,13 +25,13 @@ function [comsolModel, cellfieldmap, outputParameters] = buildAndSolveCell(comso
 %       rho, nBeamBoxCells, nExtraCells, cadOffset, vaneModelStartPos, vaneModelEndPos, endFlangeThickness)
 %   buildAndSolveCell(comsolModel, cellList, selectionNames, lengthData, nCells, verticalCellHeight, ...
 %       rho, nBeamBoxCells, nExtraCells, cadOffset, vaneModelStartPos, vaneModelEndPos, ...
-%       endFlangeThickness, xGridVals, yGridVals, zGridSteps)
+%       endFlangeThickness, boxWidth)
 %   buildAndSolveCell(comsolModel, cellList, selectionNames, lengthData, nCells, verticalCellHeight, ...
 %       rho, nBeamBoxCells, nExtraCells, cadOffset, vaneModelStartPos, vaneModelEndPos, ...
-%       endFlangeThickness, xGridVals, yGridVals, zGridSteps, separateCellsFile)
+%       endFlangeThickness, boxWidth, xGridVals, yGridVals, zGridSteps)
 %   buildAndSolveCell(comsolModel, cellList, selectionNames, lengthData, nCells, verticalCellHeight, ...
 %       rho, nBeamBoxCells, nExtraCells, cadOffset, vaneModelStartPos, vaneModelEndPos, ...
-%       endFlangeThickness, xGridVals, yGridVals, zGridSteps, separateCellsFile, inputParameters)
+%       endFlangeThickness, boxWidth, xGridVals, yGridVals, zGridSteps, inputParameters)
 %
 %   [comsolModel] = buildAndSolveCell(...)
 %   [comsolModel, cellfieldmap] = buildAndSolveCell(...)
@@ -125,13 +125,20 @@ function [comsolModel, cellfieldmap, outputParameters] = buildAndSolveCell(comso
 %
 %   buildAndSolveCell(comsolModel, cellList, selectionNames, lengthData, nCells, verticalCellHeight, ...
 %       rho, nBeamBoxCells, nExtraCells, cadOffset, vaneModelStartPos, vaneModelEndPos, ...
-%       endFlangeThickness, xGridVals, yGridVals, zGridSteps)
+%       endFlangeThickness, boxWidth)
+%   - specify the width of the total volume being modelled: this is useful
+%   when modelling vanes with offsets that cause meshing problems in small
+%   gaps.  The default value of boxWidthMod is set by getCellParameters.
+%
+%   buildAndSolveCell(comsolModel, cellList, selectionNames, lengthData, nCells, verticalCellHeight, ...
+%       rho, nBeamBoxCells, nExtraCells, cadOffset, vaneModelStartPos, vaneModelEndPos, ...
+%       endFlangeThickness, boxWidth, xGridVals, yGridVals, zGridSteps)
 %   - specify the grid point locations to read out the field map data.  The
 %   default values are specified in solveCell.
 %
 %   buildAndSolveCell(comsolModel, cellList, selectionNames, lengthData, nCells, verticalCellHeight, ...
 %       rho, nBeamBoxCells, nExtraCells, cadOffset, vaneModelStartPos, vaneModelEndPos, ...
-%       endFlangeThickness, xGridVals, yGridVals, zGridSteps, inputParameters)
+%       endFlangeThickness, boxWidth, xGridVals, yGridVals, zGridSteps, inputParameters)
 %   - also specify parameters to be passed to logMessage for information
 %   logging and display, produced by getModelParameters.
 %
@@ -161,6 +168,9 @@ function [comsolModel, cellfieldmap, outputParameters] = buildAndSolveCell(comso
 %   19-Jul 2011 S. Jolly
 %       Combined buildCell and solveCell into single function
 %
+%   11-Jan-2012 S. Jolly
+%       Added boxWidthMod input variable.
+%
 %=======================================================================
 
 %% Declarations 
@@ -170,7 +180,7 @@ function [comsolModel, cellfieldmap, outputParameters] = buildAndSolveCell(comso
     
 %% Check syntax 
 
-    if nargin < 16 || isempty(inputParameters) || ~isstruct(inputParameters) %then create parameters
+    if nargin < 18 || isempty(inputParameters) || ~isstruct(inputParameters) %then create parameters
         parameters = struct ;
     else % store parameters
         parameters = inputParameters ;
@@ -181,11 +191,11 @@ function [comsolModel, cellfieldmap, outputParameters] = buildAndSolveCell(comso
             error('ModelRFQ:ComsolInterface:buildCell:insufficientInputArguments', ...
                   ['Too few input variables: syntax is comsolModel = buildAndSolveCell(comsolModel, cellList, selectionNames, lengthData, nCells)']);
         end
-        if nargin > 17 %then throw error ModelRFQ:ComsolInterface:buildCell:excessiveInputArguments 
+        if nargin > 18 %then throw error ModelRFQ:ComsolInterface:buildCell:excessiveInputArguments 
             error('ModelRFQ:ComsolInterface:buildCell:excessiveInputArguments', ...
                   ['Too many input variables: syntax is comsolModel = buildAndSolveCell(comsolModel, cellList, selectionNames, lengthData, '...
                   'nCells, verticalCellHeight, rho, nBeamBoxCells, nExtraCells, cadOffset, vaneModelStartPos, vaneModelEndPos, '...
-                  'endFlangeThickness, xGridVals, yGridVals, zGridSteps, inputParameters)']);
+                  'endFlangeThickness, boxWidthMod, xGridVals, yGridVals, zGridSteps, inputParameters)']);
         end
 %        if nargout < 1 %then throw error ModelRFQ:ComsolInterface:buildCell:insufficientOutputArguments 
 %            error('ModelRFQ:ComsolInterface:buildCell:insufficientOutputArguments', ...
@@ -208,14 +218,17 @@ function [comsolModel, cellfieldmap, outputParameters] = buildAndSolveCell(comso
 
 %% Default values 
 
-    if nargin < 16 || isempty(zGridSteps)
+    if nargin < 17 || isempty(zGridSteps)
         zGridSteps = [] ;
     end
-    if nargin < 15 || isempty(yGridVals)
+    if nargin < 16 || isempty(yGridVals)
         yGridVals = [] ;
     end
-    if nargin < 14 || isempty(xGridVals)
+    if nargin < 15 || isempty(xGridVals)
         xGridVals = [] ;
+    end
+    if nargin < 14 || isempty(boxWidthMod)
+        boxWidthMod = [] ;
     end
     if nargin < 13 || isempty(endFlangeThickness)
         endFlangeThickness = [] ;
@@ -300,8 +313,8 @@ function [comsolModel, cellfieldmap, outputParameters] = buildAndSolveCell(comso
         end
 
         try %to build current cell
-            comsolModel = buildCell(comsolModel, cellList(i), selectionNames, lengthData, verticalCellHeight, ...
-                            rho, nBeamBoxCells, nExtraCells, cadOffset, vaneModelStart, vaneModelEnd, endFlangeThickness, parameters) ;
+            comsolModel = buildCell(comsolModel, cellList(i), selectionNames, lengthData, verticalCellHeight, rho, nBeamBoxCells, ...
+                            nExtraCells, cadOffset, vaneModelStart, vaneModelEnd, endFlangeThickness, boxWidthMod, parameters) ;
         catch exception
             errorMessage = struct;
             errorMessage.identifier = 'ModelRFQ:ComsolInterface:buildAndSolveCell:buildCell:buildException';

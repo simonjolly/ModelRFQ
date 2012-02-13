@@ -1,8 +1,8 @@
 function [comsolModel, outputParameters] = buildCell(comsolModel, cellNo, selectionNames, lengthData, verticalCellHeight, rho, nBeamBoxCells, ...
-                                 nExtraCells, cadOffset, vaneModelStartPos, vaneModelEndPos, endFlangeThickness, inputParameters)
+                                 nExtraCells, cadOffset, vaneModelStartPos, vaneModelEndPos, endFlangeThickness, boxWidthMod, inputParameters)
 % function [comsolModel, outputParameters] = buildCell(comsolModel, cellNo, selectionNames, ...
 %                                  lengthData, verticalCellHeight, rho, nBeamBoxCells, nExtraCells, ...
-%                                  cadOffset, vaneModelStartPos, vaneModelEndPos, endFlangeThickness, inputParameters)
+%                                  cadOffset, vaneModelStartPos, vaneModelEndPos, endFlangeThickness, boxWidthMod, inputParameters)
 %
 %   BUILDCELL.M - Build electrostatic RFQ cell Comsol Model
 %
@@ -22,7 +22,9 @@ function [comsolModel, outputParameters] = buildCell(comsolModel, cellNo, select
 %   buildCell(comsolModel, cellNo, selectionNames, lengthData, verticalCellHeight, ...
 %       rho, nBeamBoxCells, nExtraCells, cadOffset, vaneModelStartPos, vaneModelEndPos, endFlangeThickness)
 %   buildCell(comsolModel, cellNo, selectionNames, lengthData, verticalCellHeight, ...
-%       rho, nBeamBoxCells, nExtraCells, cadOffset, vaneModelStartPos, vaneModelEndPos, endFlangeThickness, inputParameters)
+%       rho, nBeamBoxCells, nExtraCells, cadOffset, vaneModelStartPos, vaneModelEndPos, endFlangeThickness, boxWidthMod)
+%   buildCell(comsolModel, cellNo, selectionNames, lengthData, verticalCellHeight, ...
+%       rho, nBeamBoxCells, nExtraCells, cadOffset, vaneModelStartPos, vaneModelEndPos, endFlangeThickness, boxWidthMod, inputParameters)
 %
 %   [comsolModel] = buildCell(...)
 %   [comsolModel, outputParameters] = buildCell(...)
@@ -96,7 +98,15 @@ function [comsolModel, outputParameters] = buildCell(comsolModel, cellNo, select
 %   default value is endFlangeThickness = 14e-3 m.
 %
 %   buildCell(comsolModel, cellNo, selectionNames, lengthData, verticalCellHeight, ...
-%       rho, nBeamBoxCells, nExtraCells, cadOffset, vaneModelStartPos, vaneModelEndPos, endFlangeThickness, inputParameters)
+%       rho, nBeamBoxCells, nExtraCells, cadOffset, vaneModelStartPos, vaneModelEndPos, ...
+%       endFlangeThickness, boxWidthMod)
+%   - specify the width of the total volume being modelled: this is useful
+%   when modelling vanes with offsets that cause meshing problems in small
+%   gaps.  The default value of boxWidthMod is set by getCellParameters.
+%
+%   buildCell(comsolModel, cellNo, selectionNames, lengthData, verticalCellHeight, ...
+%       rho, nBeamBoxCells, nExtraCells, cadOffset, vaneModelStartPos, vaneModelEndPos, ...
+%       endFlangeThickness, boxWidthMod, inputParameters)
 %   - also specify parameters to be passed to logMessage for information
 %   logging and display, produced by getModelParameters.
 %
@@ -123,6 +133,9 @@ function [comsolModel, outputParameters] = buildCell(comsolModel, cellNo, select
 %       Split off solveCell from buildCell.  Added extra checking of vane
 %       model start and end positions.  Added help documentation.
 %
+%   11-Jan 2011 S. Jolly
+%       Included boxWidthMod input variable.
+%
 %=======================================================================
 
 %% Declarations 
@@ -132,7 +145,7 @@ function [comsolModel, outputParameters] = buildCell(comsolModel, cellNo, select
     
 %% Check syntax 
 
-    if nargin < 13 || isempty(inputParameters) || ~isstruct(inputParameters) %then create parameters
+    if nargin < 14 || isempty(inputParameters) || ~isstruct(inputParameters) %then create parameters
         parameters = struct ;
     else % store parameters
         parameters = inputParameters ;
@@ -143,10 +156,10 @@ function [comsolModel, outputParameters] = buildCell(comsolModel, cellNo, select
             error('ModelRFQ:ComsolInterface:buildCell:insufficientInputArguments', ...
                   ['Too few input variables: syntax is comsolModel = buildCell(comsolModel, cellNo, selectionNames, lengthData)']) ;
         end
-        if nargin > 13 %then throw error ModelRFQ:ComsolInterface:buildCell:excessiveInputArguments 
+        if nargin > 14 %then throw error ModelRFQ:ComsolInterface:buildCell:excessiveInputArguments 
             error('ModelRFQ:ComsolInterface:buildCell:excessiveInputArguments', ...
                   ['Too many input variables: syntax is comsolModel = buildCell(comsolModel, cellNo, selectionNames, lengthData, verticalCellHeight, ' ...
-                  'rho, nBeamBoxCells, nExtraCells, cadOffset, vaneModelStartPos, vaneModelEndPos, endFlangeThickness, inputParameters)']) ;
+                  'rho, nBeamBoxCells, nExtraCells, cadOffset, vaneModelStartPos, vaneModelEndPos, endFlangeThickness, boxWidthMod, inputParameters)']) ;
         end
 %        if nargout < 1 %then throw error ModelRFQ:ComsolInterface:buildCell:insufficientOutputArguments 
 %            error('ModelRFQ:ComsolInterface:buildCell:insufficientOutputArguments', ...
@@ -169,6 +182,9 @@ function [comsolModel, outputParameters] = buildCell(comsolModel, cellNo, select
 
 %% Default values 
 
+    if nargin < 13 || isempty(boxWidthMod)
+        boxWidthMod = [] ;
+    end
     if nargin < 12 || isempty(endFlangeThickness)
         endFlangeThickness = 14e-3 ;
     end
@@ -263,7 +279,8 @@ function [comsolModel, outputParameters] = buildCell(comsolModel, cellNo, select
         parameters = logMessage(message, parameters) ;
         clear message;                
         [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth] = ...
-            getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells, vaneModelStart, vaneModelEnd) ;
+            getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells, ...
+            vaneModelStart, vaneModelEnd, boxWidthMod) ;
         comsolModel.param.set('cellNo', num2str(cellNo,12));
         comsolModel.param.set('boxWidth', [num2str(boxWidth,12) '[m]']);
         comsolModel.param.set('cellStart', [num2str(cellStart,12) '[m]']);

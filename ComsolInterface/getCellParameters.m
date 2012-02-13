@@ -1,8 +1,8 @@
 function [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, isAcrossMatchingSectionBoundary] ...
-          = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells, vaneModelStart, vaneModelEnd)
+          = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells, vaneModelStart, vaneModelEnd, boxWidthMod)
 %
 % function [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, isAcrossMatchingSectionBoundary] 
-%           = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells, vaneModelStart, vaneModelEnd)
+%           = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells, vaneModelStart, vaneModelEnd, boxWidthMod)
 %
 %    getCellParameters.m - Output start and end cell locations
 %
@@ -13,6 +13,8 @@ function [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, isAcrossMa
 %    [...] = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells)
 %    [...] = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells, vaneModelStart)
 %    [...] = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells, vaneModelStart, vaneModelEnd)
+%    [...] = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells, vaneModelStart, vaneModelEnd, boxWidthMod)
+%
 %    [cellStart, cellEnd, selectionStart, selectionEnd] = getCellParameters(...)
 %    [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth] = getCellParameters(...)
 %    [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, isAcrossMatchingSectionBoundary] = getCellParameters(...)
@@ -80,6 +82,12 @@ function [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, isAcrossMa
 %    - also specify the end location of the CAD model, for the same reasons
 %    as above.
 %
+%    [...] = getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells, vaneModelStart, vaneModelEnd, boxWidthMod)
+%    - modify the size of the total model volume (called the "box width")
+%    by the amount boxWidthMod: this is useful when analysing offset vanes
+%    that may cause meshing problems if the volume is fractionally larger
+%    than the model.  The default value is boxWidthMod = 0.
+%
 %    [cellStart, cellEnd, selectionStart, selectionEnd] = getCellParameters(...) - outputs
 %    the start and end of the selection region to the variables selectionStart
 %    and selectionEnd.  The selection region is one cell longer at either end
@@ -120,6 +128,9 @@ function [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, isAcrossMa
 %       that includes front plate and matching out section/end region
 %       around vane ends, including end plate.
 %
+%   11-Jan-2012 S. Jolly
+%       Added boxWidthMod variable.
+%
 %======================================================================
 
 %% Check syntax 
@@ -128,10 +139,10 @@ function [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, isAcrossMa
         error('ModelRFQ:ComsolInterface:getCellParameters:insufficientInputArguments', ...
               'Too few input variables: syntax is [cellStart, cellEnd] = getCellParameters(lengthData, cellNo)');
     end
-    if nargin > 8 %then throw error ModelRFQ:ComsolInterface:getCellParameters:excessiveInputArguments 
+    if nargin > 9 %then throw error ModelRFQ:ComsolInterface:getCellParameters:excessiveInputArguments 
         error('ModelRFQ:ComsolInterface:getCellParameters:excessiveInputArguments', ...
               ['Too many input variables: syntax is [...] = getCellParameters(lengthData, ' ...
-              'cellNo, cadOffset, verticalCellHeight, rho, nExtraCells, vaneModelStart, vaneModelEnd)']);
+              'cellNo, cadOffset, verticalCellHeight, rho, nExtraCells, vaneModelStart, vaneModelEnd, boxWidthMod)']);
     end
 %    if nargout < 2 %then throw error ModelRFQ:ComsolInterface:getCellParameters:insufficientOutputArguments 
 %        error('ModelRFQ:ComsolInterface:getCellParameters:insufficientOutputArguments', ...
@@ -143,7 +154,10 @@ function [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, isAcrossMa
     end
 
 %% Default values 
-    
+
+    if nargin < 9 || isempty(boxWidthMod)
+        boxWidthMod = 0 ;
+    end
     if nargin < 6 || isempty(nExtraCells)
         nExtraCells = 1 ;
     else
@@ -217,9 +231,9 @@ function [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth, isAcrossMa
     lastSelectionCell = lastCell + nExtraCells;
 
     if firstSelectionCell <= 1
-        boxWidth = reshapedLengthData(1) + rho;
+        boxWidth = reshapedLengthData(1) + rho + boxWidthMod ;
     else
-        boxWidth = verticalCellHeight;
+        boxWidth = verticalCellHeight + boxWidthMod ;
     end
 
     if firstSelectionCell <= 1 && lastSelectionCell >= 2
