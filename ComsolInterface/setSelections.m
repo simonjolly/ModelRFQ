@@ -682,6 +682,12 @@ function comsolModel = setSelections(comsolModel, selectionNames, endFlangeThick
             end
         end
 
+        if efgood
+            comsolModel.selection(selectionNames.endFlangeGrounded).set(endFlangeDomainNo);
+        else
+            comsolModel.selection(selectionNames.endFlangeGrounded).set([]);
+        end
+        
     catch exception
         message = struct;
         message.identifier = 'ModelRFQ:ComsolInterface:setSelections:setSelectionException';
@@ -694,16 +700,14 @@ function comsolModel = setSelections(comsolModel, selectionNames, endFlangeThick
 
     try
         if efgood
-            comsolModel.selection(selectionNames.endFlangeGrounded).set(endFlangeDomainNo);
             comsolModel.physics('es').feature('gnd1').active(true) ;
         else
-            comsolModel.selection(selectionNames.endFlangeGrounded).set([]);
             comsolModel.physics('es').feature('gnd1').active(false) ;
         end
     catch exception
         message = struct;
-        message.identifier = 'ModelRFQ:ComsolInterface:setSelections:setEndFlangeSelectionException';
-        message.text = 'Could not set selection for end flange';
+        message.identifier = 'ModelRFQ:ComsolInterface:setSelections:setEndFlangeGroundException';
+        message.text = 'Could not set end flange electrostatics';
         message.priorityLevel = 5 ;
         message.errorLevel = 'warning';
         message.exception = exception;
