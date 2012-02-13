@@ -133,8 +133,22 @@ function [comsolModel, selectionNames, vaneBoundBoxes, modelBoundBox, outputPara
         cadimpnames = comsolModel.geom('geom1').feature('imp1').objectNames ;
         topvaneobs = 0 ; botvaneobs = 0 ; leftvaneobs = 0 ; rightvaneobs = 0 ; nonvaneobs = 0 ;
         topvanenames = [] ; botvanenames = [] ; leftvanenames = [] ; rightvanenames = [] ; nonvanenames = [] ;
+        try %to build current cell
+            boundbox = comsolModel.geom('geom1').feature('imp1').object(cadimpnames(1)).getBoundingBox ;
+            bbsyntax = 'boundbox = comsolModel.geom(''geom1'').feature(''imp1'').object(cadimpnames(i)).getBoundingBox ;' ;
+        catch exception
+            errorMessage = struct;
+            errorMessage.identifier = 'ModelRFQ:ComsolInterface:createGeometry:unionException';
+            errorMessage.text = ['Could not get bounding box for CAD objects : using Comsol 4.2 syntax ...'];
+            bbsyntax = 'boundbox = comsolModel.geom(''geom1'').object(cadimpnames(i)).getBoundingBox ;' ;
+            errorMessage.priorityLevel = 5;
+            errorMessage.errorLevel = 'warning';
+            errorMessage.exception = exception;
+            logMessage(errorMessage, parameters) ;
+        end
         for i = 1:length(cadimpnames)
-            boundbox = comsolModel.geom('geom1').feature('imp1').object(cadimpnames(i)).getBoundingBox ;
+            eval(bbsyntax) ;
+%            boundbox = comsolModel.geom('geom1').feature('imp1').object(cadimpnames(i)).getBoundingBox ;
             if boundbox(3) > 0
                 topvaneobs = topvaneobs + 1 ; topvanenames{topvaneobs} = char(cadimpnames(i)) ;
             elseif boundbox(4) < 0
