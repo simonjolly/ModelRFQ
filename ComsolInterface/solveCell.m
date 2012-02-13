@@ -67,6 +67,9 @@ function [comsolModel, fieldmap] = solveCell(comsolModel, cadOffset, isStartFini
 %       Split off solveCell from buildCell.  Added conditional calculation
 %       of fieldmap depending on output variables.
 %
+%   29-Nov-2011 S. Jolly
+%       Updated default X & Y grid positions to read out 4-quadrant model.
+%
 %=======================================================================
 
 %% Declarations 

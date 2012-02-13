@@ -65,6 +65,16 @@ function [comsolModel, outputParameters] = meshCell(comsolModel, cellNo, nBeamBo
 
     try % to read out variable data from Comsol model
 
+        fourQuad = false ;
+        modelBoundBox = comsolModel.geom('geom1').getBoundingBox ;
+        minX = modelBoundBox(1) ;
+        maxX = modelBoundBox(2) ;
+        minY = modelBoundBox(3) ;
+        maxY = modelBoundBox(4) ;
+        if ( abs(minX) > ( maxX./2) ) && ( abs(minY) > ( maxY./2) )
+            fourQuad = true ;
+        end
+        
         beamBoxWidthStr = comsolModel.param.get('beamBoxWidth') ;
         metrepos = strfind(beamBoxWidthStr,'[') ;
         beamBoxWidth = str2num(beamBoxWidthStr(1:metrepos-1)) ;
@@ -86,6 +96,10 @@ function [comsolModel, outputParameters] = meshCell(comsolModel, cellNo, nBeamBo
         selectionEndStr = comsolModel.param.get('selectionEnd') ;
         metrepos = strfind(selectionEndStr,'[') ;
         selectionEnd = str2num(selectionEndStr(1:metrepos-1)) ;
+
+        if fourQuad
+            beamBoxWidth = 2.*beamBoxWidth ;
+        end
 
         clear *Str metrepos
     
@@ -190,6 +204,7 @@ function [comsolModel, outputParameters] = meshCell(comsolModel, cellNo, nBeamBo
                 logMessage(message, parameters) ;
                 clear message;
 
+%                (cellLength./numElemDis2)./(beamBoxWidth./nBeamBoxCells)
                 comsolModel.mesh('mesh1').run('ftet1');
                 goodobbmesh = 1 ;
 
@@ -197,18 +212,37 @@ function [comsolModel, outputParameters] = meshCell(comsolModel, cellNo, nBeamBo
                 goodobbmesh = 0 ;
                 errorMessage = struct;
                 errorMessage.identifier = 'ModelRFQ:ComsolInterface:meshCell:remeshOuterBeamBox:exception';
-                if cellNo == 1
+                if (cellLength./numElemDis2)./(beamBoxWidth./nBeamBoxCells) > 2
                     nBeamBoxCells = nBeamBoxCells./2 ;
-                    numElemDis1 = numElemDis1./2 ;
-                    numElemDis2 = numElemDis2./2 ;
-                    numElemDis3 = numElemDis3./2 ;
-                    errorMessage.text = ['Could not remesh outer beam box: decreasing inner beam box mesh steps to ' num2str(numElemDis2) ' and retrying...'] ;
+                    errorMessage.text = ['Could not remesh outer beam box: decreasing number of beam box cells to ' num2str(nBeamBoxCells) ' and retrying...'] ;
                 else
-                    numElemDis1 = 2.*numElemDis1 ;
-                    numElemDis2 = 2.*numElemDis2 ;
-                    numElemDis3 = 2.*numElemDis3 ;
-                    errorMessage.text = ['Could not remesh outer beam box: increasing inner beam box mesh steps to ' num2str(numElemDis2) ' and retrying...'] ;
+                    if (cellLength./numElemDis1)./(beamBoxWidth./nBeamBoxCells) <= 2
+                        numElemDis1 = numElemDis1./2 ;
+                    end
+                    if (cellLength./numElemDis2)./(beamBoxWidth./nBeamBoxCells) <= 2
+                        numElemDis2 = numElemDis2./2 ;
+                    end
+                    if (cellLength./numElemDis3)./(beamBoxWidth./nBeamBoxCells) <= 2
+                        numElemDis3 = numElemDis3./2 ;
+                    end
+                    errorMessage.text = ['Could not remesh outer beam box: decreasing inner beam box mesh steps and retrying...\n' ...
+                        'Front: ' num2str(numElemDis1) '; Middle: ' num2str(numElemDis2) '; Rear: ' num2str(numElemDis3)] ;
                 end
+%                if cellNo == 1
+%                    nBeamBoxCells = nBeamBoxCells./2 ;
+%                    numElemDis1 = numElemDis1./2 ;
+%                    numElemDis2 = numElemDis2./2 ;
+%                    numElemDis3 = numElemDis3./2 ;
+%                    errorMessage.text = ['Could not remesh outer beam box: decreasing inner beam box mesh steps to ' num2str(numElemDis2) ' and retrying...'] ;
+%                elseif cellNo > 307
+%                    nBeamBoxCells = round(nBeamBoxCells./2) ;
+%                    errorMessage.text = ['Could not remesh outer beam box: decreasing number of beam box cells to ' num2str(nBeamBoxCells) ' and retrying...'] ;
+%                else
+%                    numElemDis1 = 2.*numElemDis1 ;
+%                    numElemDis2 = 2.*numElemDis2 ;
+%                    numElemDis3 = 2.*numElemDis3 ;
+%                    errorMessage.text = ['Could not remesh outer beam box: increasing inner beam box mesh steps to ' num2str(numElemDis2) ' and retrying...'] ;
+%                end
                 errorMessage.priorityLevel = 5; 
                 errorMessage.errorLevel = 'warning';
                 errorMessage.exception = exception;
