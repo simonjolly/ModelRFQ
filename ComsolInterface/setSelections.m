@@ -126,20 +126,44 @@ function comsolModel = setSelections(comsolModel, selectionNames, endFlangeThick
 %% Set up variables
 
     dispDomains = false ;
+    fourQuad = false ;
 
     ibbfgood = false ; ibbmgood = false ; ibbbgood = false ;
     ibbgood = false ; obbgood = false ; abgood = false ;
     xvtgood = false ; xvbgood = false ; yvtgood = false ; yvbgood = false ;
+    xvtngood = false ; xvbngood = false ; yvtngood = false ; yvbngood = false ;
+    ffbibbgood = false ; sfbibbgood = false ; tfbibbgood = false ; rfbibbgood = false ;
     efgood = false ;
 
     innerBeamBoxFrontDomainNo = [] ; innerBeamBoxMidDomainNo = [] ; innerBeamBoxBackDomainNo = [] ;
     innerBeamBoxDomainNo = [] ; outerBeamBoxDomainNo = [] ; airbagDomainNo = [] ;
     yVaneTipDomainNo = [] ; yVaneBackDomainNo = [] ; xVaneTipDomainNo = [] ; xVaneBackDomainNo = [] ;
+    yVaneTipNegDomainNo = [] ; yVaneBackNegDomainNo = [] ; xVaneTipNegDomainNo = [] ; xVaneBackNegDomainNo = [] ;
     endFlangeDomainNo = [] ;
+
+    innerBeamBoxFrontFaceBoundary = [] ;
+    innerBeamBoxSecondFaceBoundary = [] ;
+    innerBeamBoxThirdFaceBoundary = [] ;
+    innerBeamBoxRearFaceBoundary = [] ;
+    innerBeamBoxLeadingFaces = [] ;
 
 %% Read out variables from Comsol model
 
     try % to read out variable data from Comsol model
+
+        modelBoundBox = comsolModel.geom('geom1').getBoundingBox ;
+        minX = modelBoundBox(1) ;
+        maxX = modelBoundBox(2) ;
+        minY = modelBoundBox(3) ;
+        maxY = modelBoundBox(4) ;
+        if ( abs(minX) > ( maxX./2) ) && ( abs(minY) > ( maxY./2) )
+            fourQuad = true ;
+            if dispDomains
+                disp(' ') ;
+                disp('Vane model is a 4-quadrant model') ;
+                disp(' ') ;
+            end
+        end
 
         numDomains = comsolModel.geom('geom1').getNDomains ;
 
@@ -230,112 +254,320 @@ function comsolModel = setSelections(comsolModel, selectionNames, endFlangeThick
                 disp(' ') ;
             end
 
-            if xmin == 0 && ymin == 0 && xmax <= beamBoxWidth && ymax <= beamBoxWidth   % find inner beam box
+            if fourQuad
 
-                if dispDomains, disp(['Domain ' num2str(i) ' is in the inner beam box']) ; disp(' ') ; end
-                ibbgood = true ;
-                innerBeamBoxDomainNo = [innerBeamBoxDomainNo i] ;
-                if zmin <= selectionStart && zmax <= cellStart  % find front inner beam box
-                    if dispDomains, disp(['Domain ' num2str(i) ' is the front inner beam box']) ; disp(' ') ; end
-                    if ibbfgood == false
-                        ibbfgood = true ;
-                        innerBeamBoxFrontDomainNo = i ;
+                if xmin >= -beamBoxWidth && ymin >= -beamBoxWidth && xmax <= beamBoxWidth && ymax <= beamBoxWidth   % find inner beam box
+
+                    if dispDomains, disp(['Domain ' num2str(i) ' is in the inner beam box']) ; disp(' ') ; end
+                    ibbgood = true ;
+                    innerBeamBoxDomainNo = [innerBeamBoxDomainNo i] ;
+                    if zmin <= selectionStart && zmax <= cellStart  % find front inner beam box
+                        if dispDomains, disp(['Domain ' num2str(i) ' is the front inner beam box']) ; disp(' ') ; end
+                        if ibbfgood == false
+                            ibbfgood = true ;
+                            innerBeamBoxFrontDomainNo = i ;
+                        else
+                            error('Too many domains classed as front inner beam box') ;
+                        end
+                    elseif zmin >= cellStart && zmax <= cellEnd     % find middle inner beam box
+                        if dispDomains, disp(['Domain ' num2str(i) ' is the mid inner beam box']) ; disp(' ') ; end
+                        if ibbmgood == false
+                            ibbmgood = true ;
+                            innerBeamBoxMidDomainNo = i ;
+                        else
+                            error('Too many domains classed as mid inner beam box') ;
+                        end
+                    elseif zmin >= cellEnd && zmax <= selectionEnd  % find read inner beam box
+                        if dispDomains, disp(['Domain ' num2str(i) ' is the back inner beam box']) ; disp(' ') ; end
+                        if ibbbgood == false
+                            ibbbgood = true ;
+                            innerBeamBoxBackDomainNo = i ;
+                        else
+                            error('Too many domains classed as back inner beam box') ;
+                        end
                     else
-                        error('Too many domains classed as front inner beam box') ;
+                        error('Domain fits only some criteria for inner beam box') ;
                     end
-                elseif zmin >= cellStart && zmax <= cellEnd     % find middle inner beam box
-                    if dispDomains, disp(['Domain ' num2str(i) ' is the mid inner beam box']) ; disp(' ') ; end
-                    if ibbmgood == false
-                        ibbmgood = true ;
-                        innerBeamBoxMidDomainNo = i ;
+
+                elseif xmin >= beamBoxWidth && ymin >= -(2.*rho) && xmax <= boxWidth && ymax <= (2.*rho)    % find X vane
+
+                    if dispDomains, disp(['Domain ' num2str(i) ' is in the X vane']) ; disp(' ') ; end
+                    if xmax <= outerBeamBoxWidth    % find X vane tip
+                        if dispDomains, disp(['Domain ' num2str(i) ' is the X vane tip']) ; disp(' ') ; end
+                        if xvtgood == false
+                            xvtgood = true ;
+                            xVaneTipDomainNo = i ;
+                        else
+                            error('Too many domains classed as X vane tip') ;
+                        end
+                    elseif xmin >= outerBeamBoxWidth    % find X vane back
+                        if dispDomains, disp(['Domain ' num2str(i) ' is the X vane back']) ; disp(' ') ; end
+                        if xvbgood == false
+                            xvbgood = true ;
+                            xVaneBackDomainNo = i ;
+                        else
+                            error('Too many domains classed as X vane back') ;
+                        end
                     else
-                        error('Too many domains classed as mid inner beam box') ;
+                        error('Domain fits only some criteria for X vane') ;
                     end
-                elseif zmin >= cellEnd && zmax <= selectionEnd  % find read inner beam box
-                    if dispDomains, disp(['Domain ' num2str(i) ' is the back inner beam box']) ; disp(' ') ; end
-                    if ibbbgood == false
-                        ibbbgood = true ;
-                        innerBeamBoxBackDomainNo = i ;
+
+                elseif xmin >= -boxWidth && ymin >= -(2.*rho) && xmax <= -beamBoxWidth && ymax <= (2.*rho)    % find negative X vane
+
+                    if dispDomains, disp(['Domain ' num2str(i) ' is in the negative X vane']) ; disp(' ') ; end
+                    if xmin >= -outerBeamBoxWidth    % find X vane tip
+                        if dispDomains, disp(['Domain ' num2str(i) ' is the negative X vane tip']) ; disp(' ') ; end
+                        if xvtngood == false
+                            xvtngood = true ;
+                            xVaneTipNegDomainNo = i ;
+                        else
+                            error('Too many domains classed as negative X vane tip') ;
+                        end
+                    elseif xmax <= -outerBeamBoxWidth    % find X vane back
+                        if dispDomains, disp(['Domain ' num2str(i) ' is the negative X vane back']) ; disp(' ') ; end
+                        if xvbngood == false
+                            xvbngood = true ;
+                            xVaneBackNegDomainNo = i ;
+                        else
+                            error('Too many domains classed as negative X vane back') ;
+                        end
                     else
-                        error('Too many domains classed as back inner beam box') ;
+                        error('Domain fits only some criteria for X vane') ;
                     end
+
+                elseif ymin >= beamBoxWidth && xmin >= -(2.*rho) && ymax <= boxWidth && xmax <= (2.*rho)    % find Y vane
+
+                    if dispDomains, disp(['Domain ' num2str(i) ' is in the Y vane']) ; disp(' ') ; end
+                    if ymax <= outerBeamBoxWidth    % find Y vane tip
+                        if dispDomains, disp(['Domain ' num2str(i) ' is the Y vane tip']) ; disp(' ') ; end
+                        if yvtgood == false
+                            yvtgood = true ;
+                            yVaneTipDomainNo = i ;
+                        else
+                            error('Too many domains classed as Y vane tip') ;
+                        end
+                    elseif ymin >= outerBeamBoxWidth    % find Y vane back
+                        if dispDomains, disp(['Domain ' num2str(i) ' is the Y vane back']) ; disp(' ') ; end
+                        if yvbgood == false
+                            yvbgood = true ;
+                            yVaneBackDomainNo = i ;
+                        else
+                            error('Too many domains classed as Y vane back') ;
+                        end
+                    else
+                        error('Domain fits only some criteria for Y vane') ;
+                    end
+
+                elseif ymin >= -boxWidth && xmin >= -(2.*rho) && ymax <= -beamBoxWidth && xmax <= (2.*rho)    % find negative Y vane
+
+                    if dispDomains, disp(['Domain ' num2str(i) ' is in the negative Y vane']) ; disp(' ') ; end
+                    if ymin >= -outerBeamBoxWidth    % find Y vane tip
+                        if dispDomains, disp(['Domain ' num2str(i) ' is the negative Y vane tip']) ; disp(' ') ; end
+                        if yvtngood == false
+                            yvtngood = true ;
+                            yVaneTipNegDomainNo = i ;
+                        else
+                            error('Too many domains classed as negative Y vane tip') ;
+                        end
+                    elseif ymax <= -outerBeamBoxWidth    % find Y vane back
+                        if dispDomains, disp(['Domain ' num2str(i) ' is the negative Y vane back']) ; disp(' ') ; end
+                        if yvbngood == false
+                            yvbngood = true ;
+                            yVaneBackNegDomainNo = i ;
+                        else
+                            error('Too many domains classed as negative Y vane back') ;
+                        end
+                    else
+                        error('Domain fits only some criteria for negative Y vane') ;
+                    end
+
+                elseif xmin >= -outerBeamBoxWidth && ymin >= -outerBeamBoxWidth && xmax <= outerBeamBoxWidth && ymax <= outerBeamBoxWidth && ...
+                    xmin < 0 && ymin < 0 && xmax > 0 && ymax > 0    % find outer beam box
+
+                    if dispDomains, disp(['Domain ' num2str(i) ' is the outer beam box']) ; disp(' ') ; end
+                    obbgood = true ;
+                    outerBeamBoxDomainNo = [outerBeamBoxDomainNo i] ;
+
+                elseif zmax - zmin <= endFlangeTotal && numDomains > 16  % find end flange
+
+                    if dispDomains, disp(['Domain ' num2str(i) ' is in the end flange']) ; disp(' ') ; end
+                    efgood = true ;
+                    endFlangeDomainNo = [endFlangeDomainNo i] ;
+
+%                elseif xmin >= 0 && ymin >= 0 && xmax == boxWidth && ymax == boxWidth   % find air bag
                 else
-                    error('Domain fits only some criteria for inner beam box') ;
+
+                    if dispDomains, disp(['Domain ' num2str(i) ' is in the air bag']) ; disp(' ') ; end
+                    abgood = true ;
+                    airbagDomainNo = [airbagDomainNo i] ;
+
+%                else
+
+%                    error('Domain does not fit any criteria for selection') ;
+
                 end
 
-            elseif xmin == 0 && ymin == 0 && xmax <= outerBeamBoxWidth && ymax <= outerBeamBoxWidth     % find outer beam box
-
-                if dispDomains, disp(['Domain ' num2str(i) ' is the outer beam box']) ; disp(' ') ; end
-                obbgood = true ;
-                outerBeamBoxDomainNo = [outerBeamBoxDomainNo i] ;
-
-            elseif xmin >= beamBoxWidth && ymin == 0 && xmax <= boxWidth && ymax <= (2.*rho)    % find X vane
-
-                if dispDomains, disp(['Domain ' num2str(i) ' is in the X vane']) ; disp(' ') ; end
-                if xmax <= outerBeamBoxWidth    % find X vane tip
-                    if dispDomains, disp(['Domain ' num2str(i) ' is the X vane tip']) ; disp(' ') ; end
-                    if xvtgood == false
-                        xvtgood = true ;
-                        xVaneTipDomainNo = i ;
-                    else
-                        error('Too many domains classed as X vane tip') ;
-                    end
-                elseif xmin >= outerBeamBoxWidth    % find X vane back
-                    if dispDomains, disp(['Domain ' num2str(i) ' is the X vane back']) ; disp(' ') ; end
-                    if xvbgood == false
-                        xvbgood = true ;
-                        xVaneBackDomainNo = i ;
-                    else
-                        error('Too many domains classed as X vane back') ;
-                    end
-                else
-                    error('Domain fits only some criteria for X vane') ;
-                end
-
-            elseif ymin >= beamBoxWidth && xmin == 0 && ymax <= boxWidth && xmax <= (2.*rho)    % find Y vane
-
-                if dispDomains, disp(['Domain ' num2str(i) ' is in the Y vane']) ; disp(' ') ; end
-                if ymax <= outerBeamBoxWidth    % find Y vane tip
-                    if dispDomains, disp(['Domain ' num2str(i) ' is the Y vane tip']) ; disp(' ') ; end
-                    if yvtgood == false
-                        yvtgood = true ;
-                        yVaneTipDomainNo = i ;
-                    else
-                        error('Too many domains classed as Y vane tip') ;
-                    end
-                elseif ymin >= outerBeamBoxWidth    % find Y vane back
-                    if dispDomains, disp(['Domain ' num2str(i) ' is the Y vane back']) ; disp(' ') ; end
-                    if yvbgood == false
-                        yvbgood = true ;
-                        yVaneBackDomainNo = i ;
-                    else
-                        error('Too many domains classed as Y vane back') ;
-                    end
-                else
-                    error('Domain fits only some criteria for Y vane') ;
-                end
-
-            elseif zmax - zmin <= endFlangeTotal && numDomains > 9  % find end flange
-
-                if dispDomains, disp(['Domain ' num2str(i) ' is in the end flange']) ; disp(' ') ; end
-                efgood = true ;
-                endFlangeDomainNo = [endFlangeDomainNo i] ;
-
-%            elseif xmin >= 0 && ymin >= 0 && xmax == boxWidth && ymax == boxWidth   % find air bag
             else
 
-                if dispDomains, disp(['Domain ' num2str(i) ' is in the air bag']) ; disp(' ') ; end
-                abgood = true ;
-                airbagDomainNo = [airbagDomainNo i] ;
+                if xmin == 0 && ymin == 0 && xmax <= beamBoxWidth && ymax <= beamBoxWidth   % find inner beam box
 
-%            else
+                    if dispDomains, disp(['Domain ' num2str(i) ' is in the inner beam box']) ; disp(' ') ; end
+                    ibbgood = true ;
+                    innerBeamBoxDomainNo = [innerBeamBoxDomainNo i] ;
+                    if zmin <= selectionStart && zmax <= cellStart  % find front inner beam box
+                        if dispDomains, disp(['Domain ' num2str(i) ' is the front inner beam box']) ; disp(' ') ; end
+                        if ibbfgood == false
+                            ibbfgood = true ;
+                            innerBeamBoxFrontDomainNo = i ;
+                        else
+                            error('Too many domains classed as front inner beam box') ;
+                        end
+                    elseif zmin >= cellStart && zmax <= cellEnd     % find middle inner beam box
+                        if dispDomains, disp(['Domain ' num2str(i) ' is the mid inner beam box']) ; disp(' ') ; end
+                        if ibbmgood == false
+                            ibbmgood = true ;
+                            innerBeamBoxMidDomainNo = i ;
+                        else
+                            error('Too many domains classed as mid inner beam box') ;
+                        end
+                    elseif zmin >= cellEnd && zmax <= selectionEnd  % find read inner beam box
+                        if dispDomains, disp(['Domain ' num2str(i) ' is the back inner beam box']) ; disp(' ') ; end
+                        if ibbbgood == false
+                            ibbbgood = true ;
+                            innerBeamBoxBackDomainNo = i ;
+                        else
+                            error('Too many domains classed as back inner beam box') ;
+                        end
+                    else
+                        error('Domain fits only some criteria for inner beam box') ;
+                    end
 
-%                error('Domain does not fit any criteria for selection') ;
+                elseif xmin == 0 && ymin == 0 && xmax <= outerBeamBoxWidth && ymax <= outerBeamBoxWidth     % find outer beam box
+
+                    if dispDomains, disp(['Domain ' num2str(i) ' is the outer beam box']) ; disp(' ') ; end
+                    obbgood = true ;
+                    outerBeamBoxDomainNo = [outerBeamBoxDomainNo i] ;
+
+                elseif xmin >= beamBoxWidth && ymin == 0 && xmax <= boxWidth && ymax <= (2.*rho)    % find X vane
+
+                    if dispDomains, disp(['Domain ' num2str(i) ' is in the X vane']) ; disp(' ') ; end
+                    if xmax <= outerBeamBoxWidth    % find X vane tip
+                        if dispDomains, disp(['Domain ' num2str(i) ' is the X vane tip']) ; disp(' ') ; end
+                        if xvtgood == false
+                            xvtgood = true ;
+                            xVaneTipDomainNo = i ;
+                        else
+                            error('Too many domains classed as X vane tip') ;
+                        end
+                    elseif xmin >= outerBeamBoxWidth    % find X vane back
+                        if dispDomains, disp(['Domain ' num2str(i) ' is the X vane back']) ; disp(' ') ; end
+                        if xvbgood == false
+                            xvbgood = true ;
+                            xVaneBackDomainNo = i ;
+                        else
+                            error('Too many domains classed as X vane back') ;
+                        end
+                    else
+                        error('Domain fits only some criteria for X vane') ;
+                    end
+
+                elseif ymin >= beamBoxWidth && xmin == 0 && ymax <= boxWidth && xmax <= (2.*rho)    % find Y vane
+
+                    if dispDomains, disp(['Domain ' num2str(i) ' is in the Y vane']) ; disp(' ') ; end
+                    if ymax <= outerBeamBoxWidth    % find Y vane tip
+                        if dispDomains, disp(['Domain ' num2str(i) ' is the Y vane tip']) ; disp(' ') ; end
+                        if yvtgood == false
+                            yvtgood = true ;
+                            yVaneTipDomainNo = i ;
+                        else
+                            error('Too many domains classed as Y vane tip') ;
+                        end
+                    elseif ymin >= outerBeamBoxWidth    % find Y vane back
+                        if dispDomains, disp(['Domain ' num2str(i) ' is the Y vane back']) ; disp(' ') ; end
+                        if yvbgood == false
+                            yvbgood = true ;
+                            yVaneBackDomainNo = i ;
+                        else
+                            error('Too many domains classed as Y vane back') ;
+                        end
+                    else
+                        error('Domain fits only some criteria for Y vane') ;
+                    end
+
+                elseif zmax - zmin <= endFlangeTotal && numDomains > 9  % find end flange
+
+                    if dispDomains, disp(['Domain ' num2str(i) ' is in the end flange']) ; disp(' ') ; end
+                    efgood = true ;
+                    endFlangeDomainNo = [endFlangeDomainNo i] ;
+
+%                elseif xmin >= 0 && ymin >= 0 && xmax == boxWidth && ymax == boxWidth   % find air bag
+                else
+
+                    if dispDomains, disp(['Domain ' num2str(i) ' is in the air bag']) ; disp(' ') ; end
+                    abgood = true ;
+                    airbagDomainNo = [airbagDomainNo i] ;
+
+%                 else
+
+%                    error('Domain does not fit any criteria for selection') ;
+
+                end
 
             end
 
         end
 
+        if fourQuad
+            xVaneTipDomainNo = [xVaneTipDomainNo xVaneTipNegDomainNo] ;
+            xVaneBackDomainNo = [xVaneBackDomainNo xVaneBackNegDomainNo] ;
+            yVaneTipDomainNo = [yVaneTipDomainNo yVaneTipNegDomainNo] ;
+            yVaneBackDomainNo = [yVaneBackDomainNo yVaneBackNegDomainNo] ;
+            for i = 1:comsolModel.geom('geom1').getNBoundaries
+                boundaryBoundBox =  mphgetcoords(comsolModel, 'geom1', 'boundary', i) ;
+                xmin = (round(min(boundaryBoundBox(1,:)).*1e12))./1e12 ; xmax = (round(max(boundaryBoundBox(1,:)).*1e12))./1e12 ;
+                ymin = (round(min(boundaryBoundBox(2,:)).*1e12))./1e12 ; ymax = (round(max(boundaryBoundBox(2,:)).*1e12))./1e12 ;
+                zmin = (round(min(boundaryBoundBox(3,:)).*1e12))./1e12 ; zmax = (round(max(boundaryBoundBox(3,:)).*1e12))./1e12 ;
+                if xmin >= -beamBoxWidth && ymin >= -beamBoxWidth && xmax <= beamBoxWidth && ymax <= beamBoxWidth   % find inner beam box boundaries
+                    if dispDomains
+                        disp(['Boundary ' num2str(i) ' is in the inner beam box'])
+                    end
+                    if zmax - zmin < 1e-9
+                        if dispDomains
+                            disp(['Boundary ' num2str(i) ' is a vertical slice in the inner beam box'])
+                        end
+                        if zmin < cellStart
+                            innerBeamBoxFrontFaceBoundary = i ;
+                            ffbibbgood = true ;
+                            if dispDomains
+                                disp(['Boundary ' num2str(i) ' is the front face of the inner beam box'])
+                            end
+                        elseif zmax > cellEnd
+                            innerBeamBoxRearFaceBoundary = i ;
+                            rfbibbgood = true ;
+                            if dispDomains
+                                disp(['Boundary ' num2str(i) ' is the rear face of the inner beam box'])
+                            end
+                        elseif zmin >= (cellStart - 1e-9) && zmax <= (cellStart + 1e-9)
+                            innerBeamBoxSecondFaceBoundary = i ;
+                            sfbibbgood = true ;
+                            if dispDomains
+                                disp(['Boundary ' num2str(i) ' is the second face of the inner beam box'])
+                            end
+                        elseif zmin >= (cellEnd - 1e-9) && zmax <= (cellEnd + 1e-9)
+                            innerBeamBoxThirdFaceBoundary = i ;
+                            tfbibbgood = true ; 
+                            if dispDomains
+                                disp(['Boundary ' num2str(i) ' is the second face of the inner beam box'])
+                            end
+                        end
+                    end
+                end
+            end
+
+            innerBeamBoxLeadingFaces = [innerBeamBoxFrontFaceBoundary innerBeamBoxSecondFaceBoundary innerBeamBoxThirdFaceBoundary] ;
+
+        end
+        
         innerBeamBoxDomainNo = [innerBeamBoxFrontDomainNo innerBeamBoxMidDomainNo innerBeamBoxBackDomainNo] ;
 
     catch exception
@@ -417,6 +649,18 @@ function comsolModel = setSelections(comsolModel, selectionNames, endFlangeThick
         comsolModel.selection(selectionNames.airBag).set(airbagDomainNo);
         comsolModel.selection(selectionNames.airBagBoundaries).set(airbagDomainNo);
         comsolModel.selection(selectionNames.beamBoxes).set([innerBeamBoxDomainNo outerBeamBoxDomainNo]);
+
+        if fourQuad
+            if ffbibbgood && sfbibbgood && tfbibbgood
+                comsolModel.selection(selectionNames.innerBeamBoxFrontFace).set(innerBeamBoxFrontFaceBoundary);
+                comsolModel.selection(selectionNames.innerBeamBoxRearFace).set(innerBeamBoxRearFaceBoundary);
+                comsolModel.selection(selectionNames.innerBeamBoxFrontEdges).set(innerBeamBoxFrontFaceBoundary);
+                comsolModel.selection(selectionNames.innerBeamBoxLeadingFaces).set(innerBeamBoxLeadingFaces);
+                comsolModel.selection(selectionNames.innerBeamBoxLeadingEdges).set(innerBeamBoxLeadingFaces);
+            else
+                error('Need to set inner beam box boundaries for 4-quadrant model but cannot find correct boundaries') ;
+            end
+        end
 
         if efgood
             comsolModel.selection(selectionNames.endFlangeGrounded).set(endFlangeDomainNo);

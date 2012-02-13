@@ -103,7 +103,7 @@ function [comsolModel, outputParameters] = meshCell(comsolModel, cellNo, nBeamBo
     numElemDis2 = 32 ;
     numElemDis3 = 32 ;
     if cellNo == 1
-        numElemDis1 = 128 ;
+        numElemDis1 = 64 ;
         numElemDis2 = 128 ;
     elseif cellNo == 2
         numElemDis1 = 128 ;
@@ -195,12 +195,20 @@ function [comsolModel, outputParameters] = meshCell(comsolModel, cellNo, nBeamBo
 
             catch exception
                 goodobbmesh = 0 ;
-                numElemDis1 = 2.*numElemDis1 ;
-                numElemDis2 = 2.*numElemDis2 ;
-                numElemDis3 = 2.*numElemDis3 ;
                 errorMessage = struct;
                 errorMessage.identifier = 'ModelRFQ:ComsolInterface:meshCell:remeshOuterBeamBox:exception';
-                errorMessage.text = ['Could not remesh outer beam box: increasing inner beam box mesh steps to ' num2str(numElemDis2) ' and retrying...'] ;
+                if cellNo == 1
+                    nBeamBoxCells = nBeamBoxCells./2 ;
+                    numElemDis1 = numElemDis1./2 ;
+                    numElemDis2 = numElemDis2./2 ;
+                    numElemDis3 = numElemDis3./2 ;
+                    errorMessage.text = ['Could not remesh outer beam box: decreasing inner beam box mesh steps to ' num2str(numElemDis2) ' and retrying...'] ;
+                else
+                    numElemDis1 = 2.*numElemDis1 ;
+                    numElemDis2 = 2.*numElemDis2 ;
+                    numElemDis3 = 2.*numElemDis3 ;
+                    errorMessage.text = ['Could not remesh outer beam box: increasing inner beam box mesh steps to ' num2str(numElemDis2) ' and retrying...'] ;
+                end
                 errorMessage.priorityLevel = 5; 
                 errorMessage.errorLevel = 'warning';
                 errorMessage.exception = exception;
@@ -210,6 +218,9 @@ function [comsolModel, outputParameters] = meshCell(comsolModel, cellNo, nBeamBo
             if (cellLength./numElemDis2)./(beamBoxWidth./nBeamBoxCells) < 0.1
                 error('ModelRFQ:ComsolInterface:meshCell:remeshBeamBoxes:stepsException', ...
                   'Inner beam box mesh step size has become too small: outer beam box cannot be meshed') ;
+            elseif nBeamBoxCells < 2
+                error('ModelRFQ:ComsolInterface:meshCell:remeshBeamBoxes:stepsException', ...
+                  'Number of beam box cells has become too small: outer beam box cannot be meshed') ;                
             end
 
         end

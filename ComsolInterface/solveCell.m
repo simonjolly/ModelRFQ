@@ -46,6 +46,10 @@ function [comsolModel, fieldmap] = solveCell(comsolModel, cadOffset, isStartFini
 %       xGridVals = [0:0.0005:0.005] - X-positions (0-5mm in 0.5mm steps)
 %       yGridVals = [0:0.0005:0.005] - Y-positions (0-5mm in 0.5mm steps)
 %       zGridSteps = 16 - number of Z-positions (16 longitudinal steps per cell)
+%   For a 4-quadrant RFQ model, the default values are:
+%       xGridVals = [-0.005:0.0005:0.005] - X-positions (0-5mm in 0.5mm steps)
+%       yGridVals = [-0.005:0.0005:0.005] - Y-positions (0-5mm in 0.5mm steps)
+%       zGridSteps = 16 - number of Z-positions (16 longitudinal steps per cell)
 %
 %   See also buildComsolModel, modelRfq, getModelParameters, setupModel,
 %   createModel, buildCell, setupSolver.
@@ -94,14 +98,32 @@ function [comsolModel, fieldmap] = solveCell(comsolModel, cadOffset, isStartFini
               ['Too many output variables: syntax is [comsolModel, fieldmap] = solveCell(comsolModel, cadOffset, isStartFinishCell)']) ;
     end
 
+    fourQuad = false ;
+    modelBoundBox = comsolModel.geom('geom1').getBoundingBox ;
+    minX = modelBoundBox(1) ;
+    maxX = modelBoundBox(2) ;
+    minY = modelBoundBox(3) ;
+    maxY = modelBoundBox(4) ;
+    if ( abs(minX) > ( maxX./2) ) && ( abs(minY) > ( maxY./2) )
+        fourQuad = true ;
+    end
+
     if nargin < 6 || isempty(zGridSteps)
         zGridSteps = 16 ;
     end
     if nargin < 5 || isempty(yGridVals)
-        yGridVals = [0:0.0005:0.005] ;
+        if fourQuad
+            yGridVals = [-0.005:0.0005:0.005] ;
+        else
+            yGridVals = [0:0.0005:0.005] ;
+        end
     end
     if nargin < 4 || isempty(xGridVals)
-        xGridVals = [0:0.0005:0.005] ;
+        if fourQuad
+            xGridVals = [-0.005:0.0005:0.005] ;
+        else
+            xGridVals = [0:0.0005:0.005] ;
+        end
     end
     if nargin < 3 || isempty(isStartFinishCell)
         isStartFinishCell = 0 ;

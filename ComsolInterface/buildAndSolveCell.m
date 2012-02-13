@@ -246,7 +246,7 @@ function [comsolModel, cellfieldmap, outputParameters] = buildAndSolveCell(comso
         verticalCellHeight = [] ;
     end
 
-    if nargin < 5 || isempty(nCells)    %#ok
+    if nargin < 5 || isempty(nCells)
         varnames = comsolModel.param.varnames ;
         nCellsFound = false ;
         for i = 1:length(varnames)
