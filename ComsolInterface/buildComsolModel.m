@@ -50,6 +50,11 @@ function [comsolModel, parameters] = buildComsolModel(varargin)
         else % store parameters
             parameters = getModelParameters(varargin{:}) ;
         end
+        if isfield(parameters, 'vane') && isfield(parameters.vane, 'fourQuad')
+            fourQuad = parameters.vane.fourQuad ;
+        else
+            fourQuad = false ;
+        end
 
         comsolModelFile = fullfile(parameters.files.comsolSourceFolder, parameters.files.comsolModel) ;
 
@@ -434,10 +439,16 @@ function [comsolModel, parameters] = buildComsolModel(varargin)
         logMessage(errorMessage, parameters) ;
         startCellNo = 1 ;
     end
+
+    if fourQuad
+        resetCell = 10 ;
+    else
+        resetCell = 40 ;
+    end
     
     for i = startCellNo : nCells + 1 %build and solve
 
-        if i ~= startCellNo && mod(i-startCellNo,40) == 0 %every 40 cells, reload the server to free memory 
+        if i ~= startCellNo && mod(i-startCellNo,resetCell) == 0 %every 40 cells, reload the server to free memory 
 
             try %to notify start 
                 message = struct;
@@ -522,7 +533,7 @@ function [comsolModel, parameters] = buildComsolModel(varargin)
                         = setupModel(parameters.files.comsolSourceFolder, parameters.files.comsolModel, parameters.files.cadFile, ...
                                      r0, rho, vaneVoltage, initialCellNo, nCells, ...
                                      cellStart, cellEnd, selectionStart, selectionEnd, ...
-                                     boxWidth, beamBoxWidth, nBeamBoxCells, parameters) ;
+                                     boxWidth, beamBoxWidth, nBeamBoxCells, fourQuad, parameters) ;
                     vaneModelStart = modelBoundBox(5) ;
                     vaneModelEnd = modelBoundBox(6) ;
                 else %load comsolModel from saved file
@@ -714,8 +725,10 @@ function [comsolModel, parameters] = buildComsolModel(varargin)
             message.exception = exception;
             logMessage(message, parameters) ;
         end
-        
-        fieldmap = fillFieldMapFromQuadrant(fieldmap) ;
+
+        if ~fourQuad
+            fieldmap = fillFieldMapFromQuadrant(fieldmap) ;
+        end
         fid = fopen(parameters.files.outputFieldMapText, 'w') ;
         if ispc %then define correct EOL character 
             newline = '\r\n';
