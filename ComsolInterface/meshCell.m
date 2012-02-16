@@ -75,25 +75,25 @@ function [comsolModel, outputParameters] = meshCell(comsolModel, cellNo, nBeamBo
             fourQuad = true ;
         end
         
-        beamBoxWidthStr = comsolModel.param.get('beamBoxWidth') ;
+        beamBoxWidthStr = char(comsolModel.param.get('beamBoxWidth')) ;
         metrepos = strfind(beamBoxWidthStr,'[') ;
         beamBoxWidth = str2num(beamBoxWidthStr(1:metrepos-1)) ;
 
-        cellStartStr = comsolModel.param.get('cellStart') ;
+        cellStartStr = char(comsolModel.param.get('cellStart')) ;
         metrepos = strfind(cellStartStr,'[') ;
         cellStart = str2num(cellStartStr(1:metrepos-1)) ;
 
-        cellEndStr = comsolModel.param.get('cellEnd') ;
+        cellEndStr = char(comsolModel.param.get('cellEnd')) ;
         metrepos = strfind(cellEndStr,'[') ;
         cellEnd = str2num(cellEndStr(1:metrepos-1)) ;
 
         cellLength = cellEnd - cellStart ;
 
-        selectionStartStr = comsolModel.param.get('selectionStart') ;
+        selectionStartStr = char(comsolModel.param.get('selectionStart')) ;
         metrepos = strfind(selectionStartStr,'[') ;
         selectionStart = str2num(selectionStartStr(1:metrepos-1)) ;
 
-        selectionEndStr = comsolModel.param.get('selectionEnd') ;
+        selectionEndStr = char(comsolModel.param.get('selectionEnd')) ;
         metrepos = strfind(selectionEndStr,'[') ;
         selectionEnd = str2num(selectionEndStr(1:metrepos-1)) ;
 

@@ -172,7 +172,7 @@ function comsolModel = setSelections(comsolModel, selectionNames, endFlangeThick
 
         numDomains = comsolModel.geom('geom1').getNDomains ;
 
-        r0Str = comsolModel.param.get('r0') ;
+        r0Str = char(comsolModel.param.get('r0')) ;
         metrepos = strfind(r0Str,'[m]') ;
         if isempty(metrepos)
             millimetrepos = strfind(r0Str,'[mm]') ;
@@ -181,7 +181,7 @@ function comsolModel = setSelections(comsolModel, selectionNames, endFlangeThick
             r0 = str2num(r0Str(1:metrepos-1)) ;
         end
 
-        rhoStr = comsolModel.param.get('rho') ;
+        rhoStr = char(comsolModel.param.get('rho')) ;
         metrepos = strfind(rhoStr,'[m]') ;
         if isempty(metrepos)
             millimetrepos = strfind(rhoStr,'[mm]') ;
@@ -190,30 +190,30 @@ function comsolModel = setSelections(comsolModel, selectionNames, endFlangeThick
             rho = str2num(rhoStr(1:metrepos-1)) ;
         end
 
-        boxWidthStr = comsolModel.param.get('boxWidth') ;
+        boxWidthStr = char(comsolModel.param.get('boxWidth')) ;
         metrepos = strfind(boxWidthStr,'[') ;
         boxWidth = str2num(boxWidthStr(1:metrepos-1)) ;
 
-        beamBoxWidthStr = comsolModel.param.get('beamBoxWidth') ;
+        beamBoxWidthStr = char(comsolModel.param.get('beamBoxWidth')) ;
         metrepos = strfind(beamBoxWidthStr,'[') ;
         beamBoxWidth = str2num(beamBoxWidthStr(1:metrepos-1)) ;
 
-        cellStartStr = comsolModel.param.get('cellStart') ;
+        cellStartStr = char(comsolModel.param.get('cellStart')) ;
         metrepos = strfind(cellStartStr,'[') ;
         cellStart = str2num(cellStartStr(1:metrepos-1)) ;
 
-        cellEndStr = comsolModel.param.get('cellEnd') ;
+        cellEndStr = char(comsolModel.param.get('cellEnd')) ;
         metrepos = strfind(cellEndStr,'[') ;
         cellEnd = str2num(cellEndStr(1:metrepos-1)) ;
 
         cellLength = cellEnd - cellStart ;
         cellMiddle = (cellLength./2) + cellStart ;
 
-        selectionStartStr = comsolModel.param.get('selectionStart') ;
+        selectionStartStr = char(comsolModel.param.get('selectionStart')) ;
         metrepos = strfind(selectionStartStr,'[') ;
         selectionStart = str2num(selectionStartStr(1:metrepos-1)) ;
 
-        selectionEndStr = comsolModel.param.get('selectionEnd') ;
+        selectionEndStr = char(comsolModel.param.get('selectionEnd')) ;
         metrepos = strfind(selectionEndStr,'[') ;
         selectionEnd = str2num(selectionEndStr(1:metrepos-1)) ;
 

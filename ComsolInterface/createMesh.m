@@ -123,8 +123,8 @@ function [comsolModel, outputParameters] = createMesh(comsolModel, selectionName
         comsolModel.mesh('mesh1').feature.create('ftri1', 'FreeTri');
         comsolModel.mesh('mesh1').feature('ftri1').selection.named(selectionNames.allTerminals);
         comsolModel.mesh('mesh1').feature('ftri1').feature.create('size1', 'Size');
-        comsolModel.mesh('mesh1').feature('ftri1').feature('size1').set('hauto', '2');
-%        comsolModel.mesh('mesh1').feature('ftri1').feature('size1').set('hauto', '1');
+%        comsolModel.mesh('mesh1').feature('ftri1').feature('size1').set('hauto', '2');
+        comsolModel.mesh('mesh1').feature('ftri1').feature('size1').set('hauto', '1');
         comsolModel.mesh('mesh1').feature('ftri1').feature('size1').selection.named(selectionNames.allTerminals);
         comsolModel.mesh('mesh1').feature('ftri1').name('Vane Surface Mesh');
         comsolModel.mesh('mesh1').run;
@@ -244,8 +244,8 @@ function [comsolModel, outputParameters] = createMesh(comsolModel, selectionName
         comsolModel.mesh('mesh1').feature('ftet1').selection.geom('geom1', 3);
         comsolModel.mesh('mesh1').feature('ftet1').selection.named(selectionNames.outerBeamBox);
         comsolModel.mesh('mesh1').feature('ftet1').feature.create('size1', 'Size');
-%        comsolModel.mesh('mesh1').feature('ftet1').feature('size1').set('hauto', '1');
-        comsolModel.mesh('mesh1').feature('ftet1').feature('size1').set('hauto', '2');
+        comsolModel.mesh('mesh1').feature('ftet1').feature('size1').set('hauto', '1');
+%        comsolModel.mesh('mesh1').feature('ftet1').feature('size1').set('hauto', '2');
         comsolModel.mesh('mesh1').feature('ftet1').feature('size1').selection.named(selectionNames.outerBeamBox);
         comsolModel.mesh('mesh1').feature('ftet1').name('Outer Beam Box Mesh');
         comsolModel.mesh('mesh1').run;
@@ -273,6 +273,9 @@ function [comsolModel, outputParameters] = createMesh(comsolModel, selectionName
         comsolModel.mesh('mesh1').feature.create('ftet2', 'FreeTet');
         comsolModel.mesh('mesh1').feature('ftet2').selection.geom('geom1', 3);
         comsolModel.mesh('mesh1').feature('ftet2').selection.named(selectionNames.airBag);
+        comsolModel.mesh('mesh1').feature('ftet2').feature.create('size1', 'Size');
+        comsolModel.mesh('mesh1').feature('ftet2').feature('size1').set('hauto', '5');
+        comsolModel.mesh('mesh1').feature('ftet2').feature('size1').selection.named(selectionNames.airBag);
         comsolModel.mesh('mesh1').feature('ftet2').name('Air Bag Mesh');
         comsolModel.mesh('mesh1').run;
 

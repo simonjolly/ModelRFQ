@@ -300,7 +300,7 @@ function [comsolModel, parameters] = buildComsolModel(varargin)
                     end
                 end
                 if goodModelStart
-                    vaneModelStartStr = comsolModel.param.get('vaneModelStart') ;
+                    vaneModelStartStr = char(comsolModel.param.get('vaneModelStart')) ;
                     metrepos = strfind(vaneModelStartStr,'[m]') ;
                     vaneModelStart = str2num(vaneModelStartStr(1:metrepos-1)) ;
                 else
@@ -313,7 +313,7 @@ function [comsolModel, parameters] = buildComsolModel(varargin)
                     vaneModelStart = cadOffset ;
                 end
                 if goodModelEnd
-                    vaneModelEndStr = comsolModel.param.get('vaneModelEnd') ;
+                    vaneModelEndStr = char(comsolModel.param.get('vaneModelEnd')) ;
                     metrepos = strfind(vaneModelEndStr,'[m]') ;
                     vaneModelEnd = str2num(vaneModelEndStr(1:metrepos-1)) ;
                     clear metrepos ;

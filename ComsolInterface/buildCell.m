@@ -222,7 +222,7 @@ function [comsolModel, outputParameters] = buildCell(comsolModel, cellNo, select
     
     if nargin < 10 || isempty(vaneModelStartPos)
         if goodModelStart
-            vaneModelStartStr = comsolModel.param.get('vaneModelStart') ;
+            vaneModelStartStr = char(comsolModel.param.get('vaneModelStart')) ;
             metrepos = strfind(vaneModelStartStr,'[m]') ;
             vaneModelStart = str2num(vaneModelStartStr(1:metrepos-1)) ;
         else
@@ -240,7 +240,7 @@ function [comsolModel, outputParameters] = buildCell(comsolModel, cellNo, select
     
     if nargin < 11 || isempty(vaneModelEndPos)
         if goodModelEnd
-            vaneModelEndStr = comsolModel.param.get('vaneModelEnd') ;
+            vaneModelEndStr = char(comsolModel.param.get('vaneModelEnd')) ;
             metrepos = strfind(vaneModelEndStr,'[m]') ;
             vaneModelEnd = str2num(vaneModelEndStr(1:metrepos-1)) ;
             clear metrepos ;

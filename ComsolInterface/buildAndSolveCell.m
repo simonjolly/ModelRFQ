@@ -268,7 +268,7 @@ function [comsolModel, cellfieldmap, outputParameters] = buildAndSolveCell(comso
             end
         end
         if nCellsFound
-            nCellsStr = comsolModel.param.get('nCells') ;
+            nCellsStr = char(comsolModel.param.get('nCells')) ;
             nCells = str2num(nCellsStr) ;
         else
             errorMessage = struct;

@@ -41,6 +41,10 @@ function [comsolModel, selectionNames, vaneBoundBoxes, modelBoundBox, outputPara
 %       Changed selection setting to use setSelections to help set
 %       selections for asymmetric 4-quadrant models.
 %
+%   16-Feb-2012 S. Jolly
+%       Updated vane union with 'compose' function to make model build in
+%       Comsol 4.2.
+%
 %======================================================================
 
 %% Declarations 
@@ -213,6 +217,41 @@ function [comsolModel, selectionNames, vaneBoundBoxes, modelBoundBox, outputPara
         errorMessage.exception = exception;
         logMessage(errorMessage, parameters) ; 
     end
+    
+    try % to unify model sections
+
+        message = struct;
+        message.identifier = 'ModelRFQ:ComsolInterface:createGeometry:modelUnification';
+        message.text = '     --> Unifying model sections...';
+        message.priorityLevel = 9;
+        message.errorLevel = 'information';
+        logMessage(message, parameters) ;
+        clear message;
+
+        comsolModel.geom('geom1').feature.create('co1', 'Compose');
+        cadcompnames = {'uni1' 'uni2' 'uni3' 'uni4'} ;
+        cadcompstring = ['uni1+uni2+uni3+uni4'] ;
+        if nonvaneobs > 0
+            for i = 1:nonvaneobs
+                cadcompnames{end+1} = nonvanenames{i} ;
+                cadcompstring = [cadcompstring '+' char(nonvanenames{i})] ;
+            end
+        end
+        comsolModel.geom('geom1').feature('co1').selection('input').set(cadcompnames) ;
+        comsolModel.geom('geom1').feature('co1').set('formula', cadcompstring) ;
+        comsolModel.geom('geom1').feature('co1').set('intbnd', 'on');
+        comsolModel.geom('geom1').feature('co1').set('repairtol', '1.0E-8') ;
+        comsolModel.geom('geom1').run('co1') ;
+
+    catch exception
+        errorMessage = struct;
+        errorMessage.identifier = 'ModelRFQ:ComsolInterface:createGeometry:modelUnification:exception';
+        errorMessage.text = 'Could not unify model sections';
+        errorMessage.priorityLevel = 6; 
+        errorMessage.errorLevel = 'error';
+        errorMessage.exception = exception;
+        logMessage(errorMessage, parameters) ; 
+    end
 
     try % to create selection block
 
@@ -259,12 +298,7 @@ function [comsolModel, selectionNames, vaneBoundBoxes, modelBoundBox, outputPara
         logMessage(message, parameters) ;
         clear message;
 
-        intersectionNames = {'blk1' 'uni1' 'uni2' 'uni3' 'uni4'} ;
-        if nonvaneobs > 0
-            for i = 1:nonvaneobs
-                intersectionNames{end+1} = nonvanenames{i} ;
-            end
-        end
+        intersectionNames = {'blk1' 'co1'} ;
         comsolModel.geom('geom1').feature.create('int1', 'Intersection');
         comsolModel.geom('geom1').feature('int1').selection('input').set(intersectionNames);
         comsolModel.geom('geom1').feature('int1').name('Cut Out Vanes');

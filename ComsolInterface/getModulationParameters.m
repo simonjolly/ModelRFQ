@@ -67,6 +67,10 @@ function [nCells, lengthData, rho, r0, vaneVoltage, cadOffset, verticalCellHeigh
     cadOffset = -matchingSectionLength;
     verticalCellHeight = 15e-3;
     nBeamBoxCells = floor( (min(aData) - abs(boxWidthMod)).*4e3 ) - 2 ;
+%    nBeamBoxCells = floor( (min(aData) - abs(boxWidthMod)).*4e3 ) ;
+    if nBeamBoxCells < 0
+        nBeamBoxCells = 0 ;
+    end
     beamBoxWidth = nBeamBoxCells/4e3 ;
     clear numericData ;
 
