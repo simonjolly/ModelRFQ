@@ -277,7 +277,7 @@ function [comsolModel, outputParameters] = buildCell(comsolModel, cellNo, select
         message.priorityLevel = 8;
         message.errorLevel = 'information';
         parameters = logMessage(message, parameters) ;
-        clear message;                
+        clear message;
         [cellStart, cellEnd, selectionStart, selectionEnd, boxWidth] = ...
             getCellParameters(lengthData, cellNo, cadOffset, verticalCellHeight, rho, nExtraCells, ...
             vaneModelStart, vaneModelEnd, boxWidthMod) ;
@@ -329,7 +329,7 @@ function [comsolModel, outputParameters] = buildCell(comsolModel, cellNo, select
         message.priorityLevel = 8;
         message.errorLevel = 'information';
         logMessage(message, parameters) ;
-        clear message;                
+        clear message;
         comsolModel = setSelections(comsolModel, selectionNames, endFlangeThickness, parameters) ;
     catch exception
         errorMessage = struct;
