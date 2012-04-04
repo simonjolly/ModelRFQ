@@ -47,4 +47,9 @@ function name = getComputerName()
     name = name(1);
     name = name{1};
     
+    % select the last line if there is more than one line
+    name = regexp(name, '\n', 'split');
+    name = name(end);
+    name = name{end};
+    
 return
